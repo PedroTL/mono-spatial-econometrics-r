@@ -190,3 +190,124 @@ plot(vizinhanca_4, setores_xy, cex = 0.6, add = TRUE) # Eu posso ser vizinho do 
 
 # Neste metodo k vizinhos mais proximos todos tem algum vizinh, diferente dos outros metodos (Resolve prob de vizinho isolado, se tem mts ilhas é boa opcao)
 
+#### 5. Correlação espacial ####
+#### Dependencia espacial ####
+# As coisas mais proximas se parecem mais entre si do que as mais distantes - Wald Tbler (1970)
+# Auto correlacao espacial (grau dedependencia espacial)
+# Tobler W R 1970 A computer movie simulating urban growth in the detrid regiono 46, 234-40
+
+# Autocorrelacao positiva (Lei de tobler) - Feicoes similares em localizacao tambem sao similares em atributos
+# Autocorrelacao negativa (Oposicao a lei de tobler) - Feicoes similares em lcalizacao tendem a ter atributos menos similares do que feicoes mais distantes (O vizinho tende a ser mais diferente do que o elemento mais distante)
+# Ausencia de autocorrelação - Atributos sao independentes da lcalizacao
+# imagem 1h07
+
+#### Duas formas de cacular indices de autocorrelacao espacial ####
+# 1. Indices globais de associacao espacial
+  # Apresenta uma medida unica para toda a area analisada (Autcorrelacao positiva, negativa ou sem autocorrelacao)
+  # Indice global de moran
+
+# 2. Indices locais de associacao espacial (LISA)
+  # Decomposicoes ds indices globais, podem ser visualizados na forma de mapas
+  # Permite a identificacao de diferentes regimes de associacao espacial
+  # Indice local de Moran (Pode ter locais que tem autocorrelacao positiva, outro local com negativa)
+
+#### Indice global de moran ####
+  # Indice global de autocorrelaca espacial, que varia entre -1 e 1
+  # Correlacao de um atributo de um elemento no espaco em relacao ao mesmo atributo nos vizinhos (Renda- "Se for vizinho sera q tende a ser semelhante?, qual a correlacao entre o elemento do poligono e o valoor dos elementos viinhos. Sera que os vizinhos são semelhantes?")
+  # Extrema autocorrelacao psitiva (lei de tobler) I = 1 (Feeicoes similares em localizacao tambem sao similares em atributos)
+  # Extrema autocorrelacao negativa (Oposicao a lei de Tobler) I = -1 Ficoes similares em localizacao endem a ter atributos menos similares do que feicoes mais distantes
+  # Ausencia de autcorrelcao I = 0 Quando atributos sao independentes da localizacao
+
+#### Calculando indice de moran ####
+# Qual atributo estmos medindo ,ver se a renda dos vizinhos é semelhante
+# Utilizar matrix normalizada (Todos os vizinhos tem influencia semelhante quando comparado com o poligono central)
+moran.test(x = setores_juntos$Renda, listw = vizinhanca_pesos)
+
+# P < 0.05 é significativo
+# Moran I > 0 autocorrelacao espacial positiva (Viinho tende a ser semelhante)
+
+#### Correlograma de indice de moran ####
+# Idea do correlograma é o seguinte, primeiro voce analise em relacao ao vizinho depois voce ve em relação aos vizinhos de segundo grau, vizinho do vizinho
+# O valor do rosa,o quanto ele é semelhante aos verdinhos (img 1h17)
+# O valor do rosa, o quanto ele é semelhante aos amarelos
+# Conforme afasta o grau de vizinhanca como é a relação
+
+correlograma_contiguidade <- sp.correlogram(neighbours = vizinhanca2, var = setores_juntos$Renda, order = 5, method = "l")
+plot(correlograma_contiguidade)
+
+# Quando passa para o segundo vizinho (lags) temos uma caida da semelhanca, quanto esta no 5 grau de vizinhaca a vizinhanca nao influencia tanto o atributo de renda
+# Para todos eles temos P < 0.5 (n aleatorio)
+# Ele usa a distancia (Todos os vizinhos q estao a 100 metros qual é autocorrelacao espacial, depois 200 metros (no nosso caso a distanncia entre os pontos, centroides dos poligonos))
+correlograma_distancia <- correlog(setores_xy, setores_juntos$Renda)
+plot(correlograma_distancia)
+correlograma_distancia
+
+# Começa alto e vai diminuindo com aumento da distancia
+# nem todos são P < 0.05
+
+#### Matriz viinhanc para ordens superiores #### 
+# Vamo falar que é vizinho nao so o primeiro mas o segund vizinho
+vizinhanca_1e2 <- nblag(vizinhanca2, maxlag = 2) # expande nivel vizinhanca
+
+# Pega a matriz de vizinhanca e acumula ate chegar a ordem 2
+# 2 atributos (Primeiro para 1 vizinho eo segundo para o vizinho do vizinho, vizinhanca 2)
+
+# Juntar vizinho de primeiro e segundo grau e falar q é tudo vizinho
+vizinhanca_ordem_2 <- nblag_cumul(vizinhanca_1e2)
+View(vizinhanca_ordem_2)
+
+#### Vizinhanca acumulada de ordens superiores (2 ordes agrupadas) ####
+# Normalizar primeiro
+vizinhanca_peso_ordem_2 <- nb2listw(vizinhanca_ordem_2) # Se tiver 10 vizinhos cada um vai ter 0.1 de peso e em seguida calcula teste de moran (considerando vizinho 1 e 2 junts)
+moran.test(x = setores_juntos$Renda, listw = vizinhanca_peso_ordem_2)
+
+# Autocorrelacao positiva mas menor do que a de ordem 1
+# P < 0.05 é significativo (Pode acontcer que a de ordem 2 ou 3 tenha mais autocorrelacao do que a de 1 ordem) (Qual tipo de vizinhanca traduz melhor a correlacao espacial)
+
+#### Indicadors Locais de Associacao Espacil (LISA) ####
+# Para cada objeto vamos considerar a relacao com os vizinhos e falar se este objeto esta autocorrelacionado com seus vizinhos
+# Valor especifico para cada objeto
+# Identificacao de:
+  # Clusters: Objetos com valores de atributos semelhantes
+  # Outliers: Objetos anomalos em relacao aos vizinhos
+  # Regimes espaciais distintos
+
+# Indice local de moran
+# Como o atributo de um objeto esta correlacionado ou nao com os seus vizinhos
+localmoran <- localmoran(x = setores_juntos$Renda, listw = vizinhanca_pesos)
+View(localmoran)
+
+# Resultdo tabela, onde cada elemento ele fala o indice de moran li, se 0,2 é positivo 0,5 positvo ee mais forte
+# valor P < 0.05 é significativo 
+
+class(localmoran)
+
+localmoran_df <- as.data.frame(localmoran)
+setores_juntos$moran <- localmoran_df$li
+setores_juntos$moran_p <- localmoran_df$`Pr(z>0)`
+View(setores_juntos@data)
+summary(setores_juntos$moran)
+
+# Indice local é decomposicao do indice geral
+
+# Pega o arquivos setores juntos e desenhe o moran com intervalos fixo
+tm_shape(setores_juntos) +
+  tm_fill("moran", style = "fixed", breaks = c(-3, 0, 0.2, 0.5, 30),
+  pallette = c("red", "lightblue", "blue", "blue4"))
+
+# Lugares vermelhos sao discrepantes (correlacao negativa, muito dif dos vizinhos)
+
+tm_shape(setores_juntos) +
+  tm_fill("moran", style = "fixed", breaks = c(0, 0.01, 0.05, 1),
+          pallette = c("darkblue", "blue", "blue4"))
+
+# Tentar cruzar 2 mapas, onde é significativo
+
+#### Diagrama de espalhamento de Moran ####
+# img 1h39
+
+# Cada ponto é o valor de um atributo (renda)
+# Eixo y e a media dos valores dos vizinhos (Padronizar, 0 é a media)
+# Criar quadrantes onde pode separar valor alto de renda no local e os vizinhos tmb tem valor alto etc..
+
+
