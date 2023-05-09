@@ -308,6 +308,122 @@ tm_shape(setores_juntos) +
 
 # Cada ponto é o valor de um atributo (renda)
 # Eixo y e a media dos valores dos vizinhos (Padronizar, 0 é a media)
-# Criar quadrantes onde pode separar valor alto de renda no local e os vizinhos tmb tem valor alto etc..
+# Criar quadrantes onde pode separar valor alto de renda no local e os vizinhos tmb tem valor alto Q1 autocorrelacao positiva
+# Poligonos quem tem valor baixo de renda e os vizinhos tem valor baixo Q2
+# Poligono tem renda baixa e os vizinhos tem renda alta Q3
+# img 1h42
 
+#### Spatial Lag - Média dos valores dos vizinhos ####
+# Qual q é a media dos vizinhs
+# Pega vizinhanca ponderada e usa ela pra calcular a media das rendas dos vizinhos
+# Calcular o valor dos vizinhos e colocar em um setor censitario sem informacao
+setores_juntos$lag_renda <- lag.listw(vizinhanca_pesos, var = setores_juntos$Renda)
+View(setores_juntos@data)
 
+tm_shape(setores_juntos) + tm_fill("lag_renda", style = "quantile")
+
+#### Diagrama espalhamento de Moran ####
+# Qual o atributo? Renda. Qual a matriz de vizinhanca
+moran.plot(x = setores_juntos$Renda, listw = vizinhanca_pesos, cex = 0.6, labels = FALSE)
+
+#### Lisa MAPS ####
+# Cada fator H acima da media L abaixo da media no poligono
+L1 <- factor(setores_juntos$Renda < mean(setores_juntos$Renda), labels = c("H", "L"))
+
+# Vizinhos fator H acima da media L abaixo da media
+L2 <- factor(setores_juntos$lag_renda < mean(setores_juntos$lag_renda), labels = c("H", "L"))
+
+setores_juntos$lisa <- paste(L1, L2)
+
+tm_shape(setores_juntos) +
+  tm_fill("lisa", palette = c("blue", "green", "yellow", "red"))
+
+View(setores_juntos@data)
+
+# Mapear só setores com valor p abaixo de 0.05
+lisa_map <- setores_juntos[setores_juntos$moran_p <= 0.05, ]
+table(lisa_map$lisa)
+tm_shape(setores_sp) + tm_borders() +
+  tm_shape(lisa_map) + tm_fill("lisa", palette = c("blue", "red"))
+
+#### Suavização espacial ####
+# Suavvizacao por estimadores bayesianos empiricos 
+# Casos de risco em lcais com baixa populacao
+  # Germ altas taxxas de risco
+  # Podem ser gerados por acaso
+
+# as vezes uma ocorrencia em um local cm baixa populacao no momento que se divide pela populacao pode gerar um risco grande 
+# Pode-se redistribuir o risco dos locais com baixa populacao para as demais areas
+# Qual o risco real de aconteccer algo naquele local
+  # Altera de risco observado (Qnt_casos/Pop) para previsão do risco (qual a chance de acontecer no futuro)
+
+# Metodo global
+  # Redistribuir para todas as demais regioes (Aconteceu aqui, uma parte do risco é ao acaso e poderia ter acontecido em qualquer local)
+
+# Metodo local
+  # Redistribui risco para os vizinhs
+  # Usa estrutura de autocorrelacao espacial
+# img 2h01
+# Valores suavizados sao melhores para prever o futuro com base no que conhecemos do passado
+
+# Suavizacao por estimadores bayesianos empiricos (Global)
+bayes_global <- EBest(n = setores_juntos$deslizam, x = setores_juntos$Pessoas)
+# n = Casos de risco
+# x = Populacao de risco
+View(bayes_global)
+#df com 2 colunas (1 é risco observado n/x a segunda é o estimado, oq deve acontecer futuro)
+setores_juntos$desl_pes <- bayes_global$raw
+tm_shape(setores_juntos) + tm_fill("desl_pes", style = "fisher")
+
+setores_juntos$beyes_gl <- bayes_global$estmm
+tm_shape(setores_juntos) + tm_fill("beyes_gl", style = "fisher")
+
+# Suavizacao por estimadores bayesiano empirico (Local)
+bayes_local <- EBlocal(ri = setores_juntos$deslizam, ni = setores_juntos$Pessoas, nb = vizinhanca2)
+View(bayes_local)
+
+setore_juntos$bayes_lc <- bayes_local$est
+tm_shape(setores_juntos) + tm_fill("bayes_lc", style = "fisher")
+
+#### Regressao espacial ####
+plot(data = setores_juntos, Renda ~ rede_esg)
+regressao_convencional <- lm(data = setores_juntos, Renda ~ rede_esg)
+summary(regressao_convencional)
+AIC(regresao_convencional)
+
+plot(data=setores_juntos, Renda ~ rede_esg)
+abline(regressao_convencional, col = "red", lwd = 2)
+
+# Analise dos residuos
+  # Medir a autocorrelacao espacial dos residuos da regressao (ndice de moran dos residuos)
+
+# Se houver autocorrelacao espacial
+  # Pode haver alguma variavel ou padro espacial que nao foi investigada pelo modelo
+  # Possibilidade de aplicar modelos de regressao espacial
+
+# Analise dos residuos
+View(regressao_convencional$residuals)
+
+setores_juntos$residuos <- regressao_convencional$residuals
+tm_shape(setores_juntos) +
+  tm_fill("residuos", style = "quantile", pallete = heat.colors(5))
+
+lm.morantest(regressao_convencional, listw = vizinhanca_pesos)
+# Os vizinhos tem autocorrelacao positiva e o valor p é menor q 0.05
+
+#### Regressao espacial ####
+# Global
+  # Inclui no modelo de regressao um parametro que captura a estrutura de autocorrelacao espacial na area de estuco como um todo
+  # A tendencia do vizinho ser semelhante é igual no mapa tod  
+
+# Locais
+  #  Parametros variam continuamente no espaco
+  # Relacoes mudam em diferentes locais do mapa
+  # Gerar um modelo de regressao para cada poligono com base nos vizinhos
+
+# Modelos com efeitos espaciais globais
+  # Premissa
+  # é possivel capturar a estrutura de correlacao espacial num unico parametro (adicionado ao modelo de regressao)
+
+  #  Alternativas
+  # Spatial lag models: Atribuem a autocorrelacao espacial a vriavel resposta Y (Se eu sei o valor y dos vizinhos, alem dos valores x que tenho no mapa inteiro, posso pegar o valor y dos meus vizinhos para calcular e ajudar a inferir o valor y do meu dado)
