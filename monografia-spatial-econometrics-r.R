@@ -427,3 +427,104 @@ lm.morantest(regressao_convencional, listw = vizinhanca_pesos)
 
   #  Alternativas
   # Spatial lag models: Atribuem a autocorrelacao espacial a vriavel resposta Y (Se eu sei o valor y dos vizinhos, alem dos valores x que tenho no mapa inteiro, posso pegar o valor y dos meus vizinhos para calcular e ajudar a inferir o valor y do meu dado)
+  # Sparial Error Models: Atribuem a autocorrelação ao erro (Se eu sei o erro do meu modelo nos meus vizinhos eu consigo usar o erro dos meus vizinhos para prever o erro no meu poligono)
+
+#### Modelo Spatial Lag ####
+# Premissa A variavel Yi é afetada pelos valores da variavel resposta nas areas vizinhas a i
+# Y = pWY + Xb + u
+# p = Coefficiente espaccial autorregressivo - Medida de correlacao espacial (p = 0, se autocorrelacao é nula - Hipotese Nula)
+# W = Matriz e proximidade espacial
+# WY = Expressa a dependencia espacial em Y
+
+# pego o dados o dados dos meus vizinhos, uso o indice de moran pra saber o quanto eles influenciam e divido pelo meus vizinhos
+
+regressao_espacial_lag <- lagsarlm(data = setores_juntos, Renda ~ rede_esg, listw = vizinhanca_peso)
+# Autorregressivo - Pega o resultado do modelo linear dos vizinhos e usa a para estimar para o nosso modelo no poligono
+summary(regressao_espacial_lag, Nagelkerk = TRUE) #Pseudo R2 de Nalgelkerke
+# Rho 0,80- é a influencia dos vizinhos se aumenta 1 Real na renda dos vizinhos aumenta 80 centavos na renda do nosso poligono  
+
+#### Modelo Spatial Error ####
+# Premissa; As observacoes sao interdependentes gracas a variavel nao mensurada, e que sao espacialmente correlacionadas
+# Ou seja: efeitos espaciais sao um ruido
+# ASssume que se pudessemos adicionar as variaveis certas para remover o erro do modelo, o espaco nao importaria mais
+# Tenta medir não pelo valor do Y dos vizinhos mas pelo erro
+# Efeitos espaciais é porque existe um ruido, variaveis que nao conhecemos no nosso territorio mas influenciam os dados, vamos fingir que criamos uma variavel ficticia que explique a variacao dos erros no territorio e usa ela para tentar prever o valor da variavel Y
+# Se tivessemos todas as explicacoes sobre o terreno conseguiriamos explicar perfeitamente Y, cmo nao temos nos utilizamos o erro para tentar simular a varivel que nao temos
+# Y = Xb + u
+# u = pWu + e
+
+# Wu = erro com efeito espacial
+# p = medidad de correlacao espacial
+# e = componente do erro com variancia constante e nao correlacionada
+regressao_espacial_CAR <- spautolm(data = setores_juntos, Renda ~ rede_esg, listw = vizinhanca_pesos, family = "CAR")
+summary(regressao_espacial_CAR, Nagelkerke = TRUE)
+# lambda = coeficiente de vizinhanca dos residuos (o erro dos vizinhos é mt semelhante 0.99)
+# AIC criterio de informacao de Akaike (quanto menor melhor o modelo fitted)
+
+#### 6. Geographically Weighted Regression ####
+# Pra eu prever o que acontece em um ponto especifico eu vou fazer uma regressao usando uma certa quantidade de vizinhos, mas nao todos, escolho um raio e falo assim, vou usar so estes vizinhos para o modelo de regressao para este ponto e alem disso os que estao mais longe vao pesar menos que o mais proximo
+# Ajusta um modelo de regressao a cada ponto observado, ponderando todas as demais observacoes como funcao da distancia a este ponto
+# y(i) = b0(i) + b1(i)x1 + e(i)
+
+# b0(i), b1(i) - Para cada ponto i do espaço ha um b0 e b1 diferentes
+# Para cada ponto observado tentamos prever ele usando uma certa funcao de distancia a este ponto, os os mais proximos influenciam mais e os mais longes influenciam menos
+
+# Funcao de kernel sobre cada ponto do espaco para ponderar os pontos vizinhs em razao da distancia
+# Pontos mais proximos do ponto central tem maior peso
+
+# Assim como no kernel - a escolha da largura da banda é importante (Pode ser fixa ou adaptavel a densidade dos dados)
+
+# Consumo de agua percapta (resposta) X Renda percapta (Preditora)
+# GWR Consumoi = b0(ui,vi) + b1(ui, vi). Rendai + ui
+
+# mapa 2h48
+# Esquerda, quanto que o aumento de 1% na renda aumenta o consumo de agua
+# Direita, mapear a qualidade do modelo
+#### GWR raio fixo ####
+raio <- gwr.sel(data = setores_juntos, Renda ~ rede_esg)
+raio
+
+raio <- 782.3348
+setores_gwr <- gwr(data = setores_juntos, Renda ~ rede_esg, bandwidth = raio)
+# So aqueles setores que o centro dele estiver em até 782 metros do centro do nosso poligono que estamos utilizando vai ser utilizado pra calcular a regressao
+
+#### GWR raio adaptativo ####
+raio_adaptativo <- gwr.sel(data= setores_juntos, Renda ~ rede_esg, adapt = TRUE)
+raio_adaptativo
+raio_adaptativo <- 0.007275952 # Eu vou usar 0,07% dos meus setores censitarios que estao mais proximos do nosso setor pra fazer equacao de regressao
+setores_gwr_adaptativo <- gwr(data = setores_juntos, Renda ~ rede_esg, adapt = raio_adaptativo)
+# Em um local que tiver varios setores proximos o raio tende a ser menor
+# Em um local com poucos setores proximos o raio tende a ser maior
+View(setores_gwr$SDF@data)
+#rede_esg = coeficiente de predicao - Considerando os vizinhos mais proximos, se eu aumento 1% na rede de esgoto oq acontece com a reenda
+#g wr.e = erro da predicao
+#pred = valor predito
+#localR2 = R2 local
+
+# Comparando raio fixo e o adaptativo
+# Raiz do erro medio quadratico (Root mean Square erro RMSE)
+# O que errar menos é melhor
+sqrt(mean(setores_gwr$SDF$gwr.e^2))
+sqrt(mean(setores_gwr_adaptativo$SDF$gwr.e^2))
+
+tm_shape(setores_gwr_adaptativo$SDF) +
+  tm_fill("rede_esg", style = "fisher")
+#Qunto mais verdinho maior influencia de esgoto na renda
+#Quanto mais amarelo tem inf negativa, se tem mais coleta de esgoto tem menos renda
+
+# Mapear r2
+tm_shape(setores_gwr_adaptativo$SDF) +
+  tm_shape("localR", style = "fisher")
+# Verdinho melhor
+
+#### Pacote GWmodel ####
+# Abordagem de analise geografica ponderada (kernel) para
+# Estatisticas descritivas
+  # Media, DP, normalidade
+
+# Modelos avancados de regressao geografica
+  # Generalizada, heteroscedastica, robusta e semi-parametrica (distribuicoes nao normais)
+  # Ridge regression (Variavel com multicolineariedade)
+  # Mutiescalar (sintetiza varios raios de kernel)
+  # kernal 3d (espaco temporal)
+
