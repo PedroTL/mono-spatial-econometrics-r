@@ -347,12 +347,12 @@ tm_shape(setores_sp) + tm_borders() +
   tm_shape(lisa_map) + tm_fill("lisa", palette = c("blue", "red"))
 
 #### Suavização espacial ####
-# Suavvizacao por estimadores bayesianos empiricos 
-# Casos de risco em lcais com baixa populacao
-  # Germ altas taxxas de risco
+# Suavizacao por estimadores bayesianos empiricos 
+# Casos de risco em locais com baixa populacao
+  # Geram altas taxas de risco
   # Podem ser gerados por acaso
 
-# as vezes uma ocorrencia em um local cm baixa populacao no momento que se divide pela populacao pode gerar um risco grande 
+# As vezes uma ocorrencia em um local coom baixa populacao no momento que se divide pela populacao pode gerar um risco grande 
 # Pode-se redistribuir o risco dos locais com baixa populacao para as demais areas
 # Qual o risco real de aconteccer algo naquele local
   # Altera de risco observado (Qnt_casos/Pop) para previsão do risco (qual a chance de acontecer no futuro)
@@ -425,7 +425,7 @@ lm.morantest(regressao_convencional, listw = vizinhanca_pesos)
   # Premissa
   # é possivel capturar a estrutura de correlacao espacial num unico parametro (adicionado ao modelo de regressao)
 
-  #  Alternativas
+  # Alternativas
   # Spatial lag models: Atribuem a autocorrelacao espacial a vriavel resposta Y (Se eu sei o valor y dos vizinhos, alem dos valores x que tenho no mapa inteiro, posso pegar o valor y dos meus vizinhos para calcular e ajudar a inferir o valor y do meu dado)
   # Sparial Error Models: Atribuem a autocorrelação ao erro (Se eu sei o erro do meu modelo nos meus vizinhos eu consigo usar o erro dos meus vizinhos para prever o erro no meu poligono)
 

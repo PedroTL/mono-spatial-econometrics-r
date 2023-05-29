@@ -1,0 +1,335 @@
+---
+title: "variaveis-mono"
+author: "João Pedro"
+date: "2023-05-27"
+output: html_document
+---
+
+```{r, include = FALSE}
+#### Pacotes ####
+library(sf)
+library(sp)
+library(plyr)
+library(rgdal)
+library(tmap)
+library(raster)
+library(tidyverse)
+library(openxlsx)
+library(readxl)
+library(geobr)
+library(knitr)
+library(cleangeo) # Correcao topologica
+library(spdep) # Dependencia espacial
+library(pgirmess) # Correlograma de distancia
+library(spatialreg) # Regressao espacial global
+library(spgwr) # Regressao ponderada geografica
+```
+
+```{r, include = FALSE}
+opts_knit$set(root.dir = "C:\\Users\\CEA ALUNO\\Desktop\\mono-spatial-econometrics-r\\mono-spatial-econometrics-r\\Mono - Bancos de Dados")
+```
+
+#### Trabalho da criacao do banco de dados sobre as variaveis independentes do modelo de regressao espacial
+
+**Descricao das variaveis independentes utilizadas.**
+
+- Porcentagem de homens entre 15 e 25 anos
+    + Segmento da populacao predisposto a cometer crimes (Fonte: Calculo Censo 2010)
+        * Tabela Pessoa12_UF (Incluindo SP Capital e Não Capital)
+        * V001 Homens residentes em domicílios particulares e domicílios coletivos
+			  * V049 Homens com 15 anos de idade
+			  * V059 Homens com 25 anos de idade
+			  * ((sum(c_across(V049:V059)) / V001) * 100)
+- Porcentagem de familias lideradas por mulher 
+    + Indicador de Instabilidade (Fonte: Calculo Censo 2010)
+        * Tabela Pessoa13_UF (Incluindo SP Capital e Não Capital)
+        * V003 Mulheres responsáveis pelo domicílio particular
+			  * V002 Mulheres em domicílios particulares permanentes
+			  * ((sum(V003) / V002) * 100)
+- Gini index 
+    + Proxy para indicador de desigualdade  (Fonte: Tabnet DATASUS, 2010)
+- Densidade populacional e densidade populacional urbana
+    + Dividindo populacao do municipio pela area em km quadrados (Fonte: IBGE 2010.)
+    + Dividindo populacao urbana do municipio pela area em km quadrados (Fonte: IBGE 2010.)
+        * Tabela 2.9 - População residente em 2000 e população residente em 2010, por situação do domicílio, com indicação da população urbana residente na sede municipal, área total e densidade demográfica, segundo as mesorregiões, as microrregiões e os municípios
+- Renda percapta
+    + Renda percapta por municipio (Fonte: Tabnet DATASUS, 2010)
+- Populacao sem religiao
+    + Indicador de instabilidade (Fonte: SIDRA, 2010)
+- Porcentagem Escolaridade
+    + Indicador de Eficiencia escolar por regiao (Fonte: SIDRA, 2010)
+        * Tabela 3954 - Taxa de escolarização das pessoas de 10 a 17 anos de idade, por grupos de idade e situação de ocupação na semana de referência
+- Variavel Dummy para municipios que pertencem a Regioes Metropolitanas
+
+**Segunda Opcoes para variaveis listadas acima.**
+
+- Porcentagem Escolaridade 
+    + Indicador de Eficiencia escolar da regiao (Fonte: Tabnet DATASUS, 2010)
+        * Opcoes:
+        * % Sem instrucao, 1 ciclo incompleto Ensino fundamental 
+        * % 1 Ciclo fundamental completo 2 ciclo incompleto 
+        * % 2 Ciclo fundamental completo ou mais
+        * % Nao determinado
+        * Total = 100%
+- Porcentagem Escolaridade
+    + Indicador de Eficiencia escolar da regiao (Fonte: Censo INEP)
+        * Matriculas em educacao basica por Municipip / Populacao na idade de educacao 4-17 anos
+			  * Tabela Pessoa11UF
+			  * V038 Pessoas com 4 anos de idade 
+			  * V051 Pessoas com 17 anos de idade
+			  * Matriculas/(sum(c_across(V038:V051)) * 100)
+- Porcentagem de familias lideradas por mulher (2 Opcao?)
+    + Indicador de Instabilidade (Fonte: Calculo Censo 2010)
+        * Tabela Domicilio01_UF (Incluindo SP Capital e Não Capital)
+        * V002 Domicílios particulares permanentes
+			  * V081 Domicílios particulares permanentes com mulher responsável e mais 1 morador
+			  * V099 Domicílios particulares permanentes com mulher responsável e mais 6 morador ou mais
+			  * ((sum(c_across(V081:V099)) / V002) *100) 
+
+**1. Criacao variavel Porcentagem de homens entre 15 e 25 anos (man_predisposition)**
+
+Carregando dados do censo para SP Capital e para SP não Capital. Unindo tudo em um unico DataFrame
+```{r, warning=FALSE, message=FALSE}
+# Censo SP CAPITAL
+censo2010sp_cap <- read.csv("Pessoa12_SP1.csv", sep = ";") %>%
+  select(Cod_setor, V001, V049:V059)
+
+# Censo NAO SP CAPITAL
+censo2010naosp_cap <- read.csv("Pessoa12_SP.csv", sep = ";") %>%
+  select(Cod_setor, V001, V049:V059)
+```
+
+```{r, warning=FALSE, message=FALSE}
+# Unindo
+censo2010_homens15_25 <- rbind(censo2010sp_cap, censo2010naosp_cap)
+rm(censo2010naosp_cap, censo2010sp_cap)
+
+censo2010_homens15_25 <- censo2010_homens15_25 %>%
+  mutate_if(is.character, as.numeric) %>%
+  mutate(Cod_setor = as.factor(Cod_setor))
+```
+
+Abrindo ShapeFile de setor censitário toda SP
+```{r, warning=FALSE, message=FALSE, cache = FALSE, comment = FALSE, results='hide'}
+shp_sp <- read_census_tract(code_tract = 35, year = 2010) %>%
+  rename(Cod_setor = code_tract) %>%
+  mutate(Cod_setor = as.factor(Cod_setor))
+```
+
+Unindo dados do Censo por setor censitário
+```{r, warning=FALSE, message=FALSE}
+# Adicionando dados por setor censitario no shapefile de SP
+shp_sp <- shp_sp %>%
+  left_join(censo2010_homens15_25)
+```
+
+Realizando calculo agrupado por setor censitario 
+```{r, warning=FALSE, message=FALSE}
+# Realizando agrupamento por setor censitario e calculando variavel
+shp_sp <- shp_sp %>%
+  group_by(Cod_setor) %>%
+  summarise(V049_V059 = sum(c_across(V049:V059), na.rm = TRUE),
+            V001 = sum(V001, na.rm = TRUE),
+            code_muni = code_muni,
+            geom = geom) %>%
+  ungroup()
+
+shp_sp2 <- shp_sp %>%
+  st_drop_geometry()
+```
+
+Realizando calculo agrupado por municipio
+```{r, warning=FALSE, message=FALSE}
+# Agrupando por municipio e calculando vaariavel
+shp_sp2 <- shp_sp2 %>% 
+  group_by(code_muni) %>%
+  summarise(V049_V059 = sum(V049_V059, na.rm = TRUE),
+            V001 = sum(V001, na.rm = TRUE)) %>%
+  ungroup()
+```
+
+Calculando Variavel *man_predisposition*
+```{r, warning=FALSE, message=FALSE}
+shp_sp2 <- shp_sp2 %>% 
+  group_by(code_muni) %>%
+  summarise(man_predisposition = (V049_V059/V001) * 100) %>%
+  ungroup()
+```
+
+```{r, warning=FALSE, message=FALSE}
+man_predispositiondf <- shp_sp2 %>%
+  mutate(code_muni = as.factor(code_muni))
+knitr::kable(head(man_predispositiondf, 5), align = 'l')
+```
+
+**2. criacao da variavel Porcentagem de familias lideradas por mulher (family_instability)** 
+
+Carregando dados do censo para SP Capital e para SP não Capital. Unindo tudo em um unico DataFrame
+```{r, warning=FALSE, message=FALSE}
+# Censo SP CAPITAL
+censo2010sp_cap <- read.csv("Pessoa13_SP1.csv", sep = ";") %>%
+  select(Cod_setor, V002, V003)
+
+
+# Censo NAO SP CAPITAL
+censo2010naosp_cap <- read.csv("Pessoa13_SP.csv", sep = ";") %>%
+  select(Cod_setor, V002, V003)
+```
+
+```{r, warning=FALSE, message=FALSE}
+# Unindo
+# Unindo
+censo2010_lider_mulher <- rbind(censo2010sp_cap, censo2010naosp_cap)
+rm(censo2010naosp_cap, censo2010sp_cap)
+
+censo2010_lider_mulher <- censo2010_lider_mulher %>%
+  mutate_if(is.character, as.numeric) %>%
+  mutate(Cod_setor = as.factor(Cod_setor))
+```
+
+Abrindo ShapeFile de setor censitário toda SP
+```{r, warning=FALSE, message=FALSE}
+shp_sp <- read_census_tract(code_tract = 35, year = 2010) %>%
+  rename(Cod_setor = code_tract) %>%
+  mutate(Cod_setor = as.factor(Cod_setor))
+```
+
+Unindo dados do Censo por setor censitário
+```{r, warning=FALSE, message=FALSE}
+# Adicionando dados por setor censitario no shapefile de SP
+shp_sp <- shp_sp %>%
+  left_join(censo2010_lider_mulher)
+
+shp_sp <- shp_sp %>%
+  st_drop_geometry()
+```
+
+Realizando calculo agrupado por setor censitario 
+```{r, warning=FALSE, message=FALSE}
+# Realizando agrupamento por setor censitario e calculando variavel
+shp_sp <- shp_sp %>%
+  group_by(Cod_setor) %>%
+  summarise(V002 = sum(V002, na.rm = TRUE),
+            V003 = sum(V003, na.rm = TRUE),
+            code_muni = code_muni) %>%
+  ungroup()
+
+shp_sp2 <- shp_sp
+```
+
+Realizando calculo agrupado por municipio variavel *family_instability*
+```{r, warning=FALSE, message=FALSE}
+# Agrupando por municipio e calculando vaariavel
+shp_sp2 <- shp_sp2 %>% 
+  group_by(code_muni) %>%
+  summarise(family_instability = (sum(V003)/sum(V002)) * 100) %>%
+  ungroup()
+```
+
+```{r, warning=FALSE, message=FALSE}
+family_instabilitydf <- shp_sp2 %>%
+    mutate(code_muni = as.factor(code_muni))
+knitr::kable(head(family_instabilitydf, 5), align = 'l')
+```
+
+**3. Variavel Gini Index**
+
+```{r, warning=FALSE, message=FALSE}
+gini <- read_xlsx("gini_br_SIM.xlsx") %>%
+  mutate(code_muni = gsub("[^0-9.-]", "", Município),
+         code_muni = as.factor(code_muni))
+```
+
+```{r, warning=FALSE, message=FALSE}
+knitr::kable(head(gini, 5), align = 'l')
+```
+
+**4. Variavel Densidade demografica (density) e (urban_density)**
+
+```{r, warning=FALSE, message=FALSE}
+density <- read_xlsx("dens_demogr_censo_2010completa.xlsx") %>%
+  mutate(density = `Densidade demográfica Hab./Km2`,
+         urban_density = Urbana/`Área total Km2`) %>%
+  rename(municipio = Município)
+```
+
+```{r, warning=FALSE, message=FALSE}
+knitr::kable(head(density, 5), align = 'l')
+```
+
+**5. Variavel Income Percapta**
+
+```{r, warning=FALSE, message=FALSE}
+income_percapta <- read_xlsx("renda_percapta_2010tabnet.xlsx") %>%
+  rename(income_percapta = Renda_média_domic._per_capita) %>%
+  mutate(code_muni = gsub("[^0-9.-]", "", Município),
+         code_muni = as.factor(code_muni))
+```
+
+```{r, warning=FALSE, message=FALSE}
+knitr::kable(head(income_percapta, 5), align = 'l')
+```
+
+**6. Variavel education**
+
+```{r, warning=FALSE, message=FALSE}
+education <- read_xlsx("taxa_escolarizacao2010_sidra.xlsx") %>%
+  rename(code_muni = Cod_mun) %>%
+  mutate(education = `total em %`,
+         code_muni = as.factor(code_muni))
+```
+
+```{r, warning=FALSE, message=FALSE}
+knitr::kable(head(education, 5), align = 'l')
+```
+
+**7. Variavel no_religion**
+
+```{r, warning=FALSE, message=FALSE}
+no_religion <- read_xlsx("religiao_mun_2010.xlsx") %>%
+  mutate(`Sem religião` = as.numeric(`Sem religião`),
+         Total = as.numeric(Total),
+         no_religion = (`Sem religião`/Total)*100) %>%
+  rename(code_muni = Cód.) %>%
+  mutate(code_muni = as.factor(code_muni))
+```
+
+```{r, warning=FALSE, message=FALSE}
+knitr::kable(head(no_religion, 5), align = 'l')
+```
+
+**8. Banco de dados Final**
+
+Abrindo banco de dados Homicidio 100 mil habitantes para 2010
+```{r, include = FALSE}
+homicide <- read.csv("homicidios2010.csv", sep = ";") %>%
+  rename(code_muni = cod, homicide = valor) %>%
+  filter(período == 2010) %>%
+  mutate(code_muni = as.factor(code_muni))
+```
+
+```{r, warning=FALSE, message=FALSE}
+knitr::kable(head(homicide, 5), align = 'l') 
+```
+
+Unindo Variaveis por code_muni
+```{r, warning=FALSE, message=FALSE}
+final_df <- join_all(list(education,
+                          no_religion,
+                          income_percapta,
+                          gini,
+                          homicide,
+                          family_instabilitydf,
+                          man_predispositiondf), by = "code_muni", type = "left") %>%
+  select(code_muni, municipio = nome, homicide, education, no_religion, family_instability, man_predisposition) %>%
+  distinct(code_muni, .keep_all = TRUE)
+
+
+final_df <- final_df %>%
+  left_join(density) %>%
+  select(code_muni, municipio, homicide, density, urban_density, education, no_religion, family_instability, man_predisposition)
+```
+
+```{r, warning=FALSE, message=FALSE}
+knitr::kable(head(final_df, 5), align = 'l') 
+```
