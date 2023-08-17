@@ -131,4 +131,15 @@ lm.morantest(fit_1, rwm, alternative="two.sided")
   # “If so the behaviour is likely to be highly social in nature, and understanding the interactions between interdependent units is critical to understanding the behaviour in question. For example, citizens may discuss politics across adjoining neighbours such that an increase in support for a candidate 
   # in one neighbourhood directly leads to an increase in support for the candidate in adjoining neighbourhoods” (Darmofal, 2015: 4)
 
+# 5. Spatial Regimes
+# Before we proceed to a more detailed description of these two models it is important that we examine another aspect of our model that also links to geography. Remember that when we brought up our data into R, we decided to test for the presence of an interaction. We looked at whether the role of unemployment was different in Southern and Northern states. 
+# We found that this interaction was indeed significant. Unemployment had a more significant effect in Southern than in Northern states. This was particularly obvious during the 1970s, when unemployment did not affect homicide rates in the Northern states, but it did lead to a decrease in homicide in the Southern states.
 
+# We could have attempted to test other interaction effects between some of our other predictors and their geographical location in the South or the North. But we did not.
+
+# If you have read the Ballen et al. (2001) paper that we are replicating in the lab last week and this week, you will have noticed that they decided that they needed to run separate models for the South and the North. This kind of situation, where sub-regions seem to display different patterns is often alluded with the name of spatial regimes. 
+# In the context of regression analysis, spatial regimes relate to the possibility that we may need to split our data into two (or more) sub-regions in order to run our models, because we presume that the relationship of the predictors to the outcome may play out differently in these sub-regions (spatial regimes).
+
+# So how can we assess whether this is an issue in our data? As with many other diagnostics of regression, you may want to start by looking at your residuals.
+
+## 5.1 Acessando Regimes Espaciais Utilizando os Residuos ----------------------------

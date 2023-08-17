@@ -26,7 +26,7 @@ library(spgwr) # Regressao ponderada geografica
 ```
 
 ```{r, include = FALSE}
-opts_knit$set(root.dir = "C:\\Users\\CEA ALUNO\\Desktop\\mono-spatial-econometrics-r\\mono-spatial-econometrics-r\\Mono - Bancos de Dados")
+opts_knit$set(root.dir = "C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Mono - Bancos de Dados")
 ```
 
 #### Trabalho da criacao do banco de dados sobre as variaveis independentes do modelo de regressao espacial
@@ -90,12 +90,14 @@ opts_knit$set(root.dir = "C:\\Users\\CEA ALUNO\\Desktop\\mono-spatial-econometri
 
 Carregando dados do censo para SP Capital e para SP não Capital. Unindo tudo em um unico DataFrame
 ```{r, warning=FALSE, message=FALSE}
+setwd("C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Mono - Bancos de Dados")
+
 # Censo SP CAPITAL
-censo2010sp_cap <- read.csv("Pessoa12_SP1.csv", sep = ";") %>%
+censo2010sp_cap <- read.csv("C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Mono - Bancos de Dados\\Pessoa12_SP1.csv", sep = ";") %>%
   select(Cod_setor, V001, V049:V059)
 
 # Censo NAO SP CAPITAL
-censo2010naosp_cap <- read.csv("Pessoa12_SP.csv", sep = ";") %>%
+censo2010naosp_cap <- read.csv("C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Mono - Bancos de Dados\\Pessoa12_SP.csv", sep = ";") %>%
   select(Cod_setor, V001, V049:V059)
 ```
 
@@ -106,32 +108,31 @@ rm(censo2010naosp_cap, censo2010sp_cap)
 
 censo2010_homens15_25 <- censo2010_homens15_25 %>%
   mutate_if(is.character, as.numeric) %>%
-  mutate(Cod_setor = as.factor(Cod_setor))
+  mutate(code_tract = as.factor(Cod_setor))
 ```
 
 Abrindo ShapeFile de setor censitário toda SP
 ```{r, warning=FALSE, message=FALSE, cache = FALSE, comment = FALSE, results='hide'}
 shp_sp <- read_census_tract(code_tract = 35, year = 2010) %>%
-  rename(Cod_setor = code_tract) %>%
-  mutate(Cod_setor = as.factor(Cod_setor))
+  mutate(code_tract = as.factor(code_tract))
 ```
 
 Unindo dados do Censo por setor censitário
 ```{r, warning=FALSE, message=FALSE}
 # Adicionando dados por setor censitario no shapefile de SP
 shp_sp <- shp_sp %>%
-  left_join(censo2010_homens15_25)
+  left_join(censo2010_homens15_25, by = "code_tract")
 ```
 
 Realizando calculo agrupado por setor censitario 
 ```{r, warning=FALSE, message=FALSE}
 # Realizando agrupamento por setor censitario e calculando variavel
 shp_sp <- shp_sp %>%
-  group_by(Cod_setor) %>%
-  summarise(V049_V059 = sum(c_across(V049:V059), na.rm = TRUE),
-            V001 = sum(V001, na.rm = TRUE),
-            code_muni = code_muni,
-            geom = geom) %>%
+  group_by(code_tract) %>%
+  dplyr::summarise(V049_V059 = sum(dplyr::c_across(V049:V059), na.rm = TRUE),
+                   V001 = sum(V001, na.rm = TRUE),
+                   code_muni = code_muni,
+                   geom = geom) %>%
   ungroup()
 
 shp_sp2 <- shp_sp %>%
@@ -143,8 +144,8 @@ Realizando calculo agrupado por municipio
 # Agrupando por municipio e calculando vaariavel
 shp_sp2 <- shp_sp2 %>% 
   group_by(code_muni) %>%
-  summarise(V049_V059 = sum(V049_V059, na.rm = TRUE),
-            V001 = sum(V001, na.rm = TRUE)) %>%
+  dplyr::summarise(V049_V059 = sum(V049_V059, na.rm = TRUE),
+                   V001 = sum(V001, na.rm = TRUE)) %>%
   ungroup()
 ```
 
@@ -152,13 +153,14 @@ Calculando Variavel *man_predisposition*
 ```{r, warning=FALSE, message=FALSE}
 shp_sp2 <- shp_sp2 %>% 
   group_by(code_muni) %>%
-  summarise(man_predisposition = (V049_V059/V001) * 100) %>%
+  dplyr::summarise(man_predisposition = (V049_V059/V001) * 100) %>%
   ungroup()
 ```
 
 ```{r, warning=FALSE, message=FALSE}
 man_predispositiondf <- shp_sp2 %>%
   mutate(code_muni = as.factor(code_muni))
+
 knitr::kable(head(man_predispositiondf, 5), align = 'l')
 ```
 
@@ -167,31 +169,29 @@ knitr::kable(head(man_predispositiondf, 5), align = 'l')
 Carregando dados do censo para SP Capital e para SP não Capital. Unindo tudo em um unico DataFrame
 ```{r, warning=FALSE, message=FALSE}
 # Censo SP CAPITAL
-censo2010sp_cap <- read.csv("Pessoa13_SP1.csv", sep = ";") %>%
+censo2010sp_cap <- read.csv("C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Mono - Bancos de Dados\\Pessoa13_SP1.csv", sep = ";") %>%
   select(Cod_setor, V002, V003)
 
-
 # Censo NAO SP CAPITAL
-censo2010naosp_cap <- read.csv("Pessoa13_SP.csv", sep = ";") %>%
+censo2010naosp_cap <- read.csv("C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Mono - Bancos de Dados\\Pessoa13_SP.csv", sep = ";") %>%
   select(Cod_setor, V002, V003)
 ```
 
 ```{r, warning=FALSE, message=FALSE}
-# Unindo
 # Unindo
 censo2010_lider_mulher <- rbind(censo2010sp_cap, censo2010naosp_cap)
 rm(censo2010naosp_cap, censo2010sp_cap)
 
 censo2010_lider_mulher <- censo2010_lider_mulher %>%
   mutate_if(is.character, as.numeric) %>%
-  mutate(Cod_setor = as.factor(Cod_setor))
+  mutate(code_tract = as.factor(Cod_setor)) %>%
+  select(-Cod_setor)
 ```
 
 Abrindo ShapeFile de setor censitário toda SP
 ```{r, warning=FALSE, message=FALSE}
 shp_sp <- read_census_tract(code_tract = 35, year = 2010) %>%
-  rename(Cod_setor = code_tract) %>%
-  mutate(Cod_setor = as.factor(Cod_setor))
+  mutate(code_tract = as.factor(code_tract))
 ```
 
 Unindo dados do Censo por setor censitário
@@ -208,26 +208,26 @@ Realizando calculo agrupado por setor censitario
 ```{r, warning=FALSE, message=FALSE}
 # Realizando agrupamento por setor censitario e calculando variavel
 shp_sp <- shp_sp %>%
-  group_by(Cod_setor) %>%
+  group_by(code_tract) %>%
   summarise(V002 = sum(V002, na.rm = TRUE),
             V003 = sum(V003, na.rm = TRUE),
             code_muni = code_muni) %>%
   ungroup()
 
-shp_sp2 <- shp_sp
+shp_sp3 <- shp_sp
 ```
 
 Realizando calculo agrupado por municipio variavel *family_instability*
 ```{r, warning=FALSE, message=FALSE}
 # Agrupando por municipio e calculando vaariavel
-shp_sp2 <- shp_sp2 %>% 
+shp_sp3 <- shp_sp3 %>% 
   group_by(code_muni) %>%
   summarise(family_instability = (sum(V003)/sum(V002)) * 100) %>%
   ungroup()
 ```
 
 ```{r, warning=FALSE, message=FALSE}
-family_instabilitydf <- shp_sp2 %>%
+family_instabilitydf <- shp_sp3 %>%
     mutate(code_muni = as.factor(code_muni))
 knitr::kable(head(family_instabilitydf, 5), align = 'l')
 ```
@@ -235,35 +235,24 @@ knitr::kable(head(family_instabilitydf, 5), align = 'l')
 **3. Variavel Gini Index**
 
 ```{r, warning=FALSE, message=FALSE}
-gini <- read_xlsx("gini_br_SIM.xlsx") %>%
+gini <- read_xlsx("C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Mono - Bancos de Dados\\gini.xlsx") %>%
   mutate(code_muni = gsub("[^0-9.-]", "", Município),
-         code_muni = as.factor(code_muni))
+         code_muni = as.factor(code_muni)) %>%
+  select(gini_income_code_muni = code_muni, gini_2010 = `2010`)
 ```
 
 ```{r, warning=FALSE, message=FALSE}
 knitr::kable(head(gini, 5), align = 'l')
 ```
 
-**4. Variavel Densidade demografica (density) e (urban_density)**
-
-```{r, warning=FALSE, message=FALSE}
-density <- read_xlsx("dens_demogr_censo_2010completa.xlsx") %>%
-  mutate(density = `Densidade demográfica Hab./Km2`,
-         urban_density = Urbana/`Área total Km2`) %>%
-  rename(municipio = Município)
-```
-
-```{r, warning=FALSE, message=FALSE}
-knitr::kable(head(density, 5), align = 'l')
-```
-
 **5. Variavel Income Percapta**
 
 ```{r, warning=FALSE, message=FALSE}
-income_percapta <- read_xlsx("renda_percapta_2010tabnet.xlsx") %>%
+income_percapta <- read_xlsx("C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Mono - Bancos de Dados\\renda_percapta_2010tabnet.xlsx") %>%
   rename(income_percapta = Renda_média_domic._per_capita) %>%
   mutate(code_muni = gsub("[^0-9.-]", "", Município),
-         code_muni = as.factor(code_muni))
+         code_muni = as.factor(code_muni)) %>%
+  select(gini_income_code_muni = code_muni ,income_percapta)
 ```
 
 ```{r, warning=FALSE, message=FALSE}
@@ -273,10 +262,11 @@ knitr::kable(head(income_percapta, 5), align = 'l')
 **6. Variavel education**
 
 ```{r, warning=FALSE, message=FALSE}
-education <- read_xlsx("taxa_escolarizacao2010_sidra.xlsx") %>%
+education <- read_xlsx("C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Mono - Bancos de Dados\\taxa_escolarizacao2010_sidra.xlsx") %>%
   rename(code_muni = Cod_mun) %>%
   mutate(education = `total em %`,
-         code_muni = as.factor(code_muni))
+         code_muni = as.factor(code_muni)) %>%
+  select(code_muni, education_percent = education)
 ```
 
 ```{r, warning=FALSE, message=FALSE}
@@ -286,12 +276,13 @@ knitr::kable(head(education, 5), align = 'l')
 **7. Variavel no_religion**
 
 ```{r, warning=FALSE, message=FALSE}
-no_religion <- read_xlsx("religiao_mun_2010.xlsx") %>%
+no_religion <- read_xlsx("C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Mono - Bancos de Dados\\religiao_mun_2010.xlsx") %>%
   mutate(`Sem religião` = as.numeric(`Sem religião`),
          Total = as.numeric(Total),
          no_religion = (`Sem religião`/Total)*100) %>%
   rename(code_muni = Cód.) %>%
-  mutate(code_muni = as.factor(code_muni))
+  mutate(code_muni = as.factor(code_muni)) %>%
+  select(code_muni, no_regilion_percent = no_religion)
 ```
 
 ```{r, warning=FALSE, message=FALSE}
@@ -302,7 +293,7 @@ knitr::kable(head(no_religion, 5), align = 'l')
 
 Abrindo banco de dados Homicidio 100 mil habitantes para 2010
 ```{r, include = FALSE}
-homicide <- read.csv("homicidios2010.csv", sep = ";") %>%
+homicide <- read.csv("C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Mono - Bancos de Dados\\homicidios2010.csv", sep = ";") %>%
   rename(code_muni = cod, homicide = valor) %>%
   filter(período == 2010) %>%
   mutate(code_muni = as.factor(code_muni))
@@ -312,22 +303,37 @@ homicide <- read.csv("homicidios2010.csv", sep = ";") %>%
 knitr::kable(head(homicide, 5), align = 'l') 
 ```
 
+**4. Variavel Densidade demografica (density) e (urban_density)**
+
+```{r, warning=FALSE, message=FALSE}
+density <- read_xlsx("C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Mono - Bancos de Dados\\dens_demogr_censo_2010completa.xlsx") %>%
+  mutate(density = `Densidade demográfica Hab./Km2`,
+         urban_density = Urbana/`Área total Km2`) %>%
+  rename(municipio = Município)
+
+density <- density %>%
+  left_join(homicide, by = c("municipio" = "nome")) %>%
+  select(code_muni, municipio, 2:10)
+```
+
 Unindo Variaveis por code_muni
 ```{r, warning=FALSE, message=FALSE}
-final_df <- join_all(list(education,
-                          no_religion,
-                          income_percapta,
-                          gini,
-                          homicide,
-                          family_instabilitydf,
-                          man_predispositiondf), by = "code_muni", type = "left") %>%
-  select(code_muni, municipio = nome, homicide, education, no_religion, family_instability, man_predisposition) %>%
-  distinct(code_muni, .keep_all = TRUE)
+final_df_model <- join_all(list(man_predispositiondf,
+                                family_instabilitydf,
+                                density,
+                                education,
+                                no_religion), by = "code_muni", type = "left")
 
+final_df_model <- final_df_model %>%
+  mutate(gini_income_code_muni = str_sub(code_muni, start = 1, end = -2))
 
-final_df <- final_df %>%
-  left_join(density) %>%
-  select(code_muni, municipio, homicide, density, urban_density, education, no_religion, family_instability, man_predisposition)
+final_df_model <- final_df_model %>%
+  left_join(gini, by = "gini_income_code_muni")
+
+final_df_model <- final_df_model %>%
+  left_join(income_percapta, by = "gini_income_code_muni")
+
+write.xlsx(final_df_model, "C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Mono - Bancos de Dados\\final_df_model.xlsx")
 ```
 
 ```{r, warning=FALSE, message=FALSE}
