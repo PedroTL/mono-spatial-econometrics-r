@@ -21,8 +21,16 @@ setwd("C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Mono - 
 
 # 1. Banco de Dados -----------------------------------------------
 ## 1.1 final_df (Homicidios ~ Variaveis Independentes) ------------
-var_modelo <- read.xlsx("final_df.xlsx")
-# Faltando income_percapta, gini index, regioes metropolitanas, desemprego
+var_modelo <- read.xlsx("final_df_model1.xlsx") %>%
+  distinct(code_muni, .keep_all = TRUE) %>%
+  mutate(metropolitan = ifelse(!is.na(metropolitanic_regions), 1, 0),
+         metropolitan_menor = ifelse(metropolitanic_regions %in% c("Região Metropolitana de São Paulo", "Região Metropolitana de Campinas", "Região Metropolitana da Baixada Santista"), 1, 0),
+         code_muni = as.factor(code_muni)) 
+
+var_modelo <- var_modelo |>
+  rowwise() |>
+  mutate(mean_homicide = sum(c_across(homicide2009:homicide2011), na.rm = T)/3) |>
+  ungroup()
 
 ## 1.2 ShapeFile estado de SP -------------------------------------
 shp_sp <- read_municipality(35, year = 2020) %>%
@@ -30,20 +38,19 @@ shp_sp <- read_municipality(35, year = 2020) %>%
          name_muni = as.character(name_muni)) %>%
   select(code_muni, name_muni, geometry = geom)
 
-## 1.3 Join de var_modelo com shp_sp -----------------------------
+## 1.3 Join de var_modelo com shp_sp ------------------------------
 shp_sp <- shp_sp %>%
   filter(code_muni != "3520400") %>%
-  left_join(var_modelo, by = "code_muni") %>% # 645 mun para 629 (Tirar NA) + Ilha Bela
-  drop_na()
+  left_join(var_modelo, by = "code_muni") # 645 mun para 629 (Tirar NA) + Ilha Bela
 
-# 2. Analise Topologica ------------------------------------------
-## 2.1 Transformando SF em SP
+# 2. Analise Topologica -------------------------------------------
+## 2.1 Transformando SF em SP -------------------------------------
 shp_sp_valid <- as(shp_sp, "Spatial")
 
-### 2.1.1 Verificando se é Valido
+### 2.1.1 Verificando se é Valido ---------------------------------
 clgeo_IsValid(shp_sp_valid) # Utilizar shp_sp pois é valido
 
-### 2.1.2  Criando uma matriz de vizinhanca (Criterio da Rainha)\
+### 2.1.2  Criando uma matriz de vizinhanca (Criterio da Rainha) -------------
 w <- poly2nb(shp_sp, row.names=shp_sp$code_muni)
 
 # Removendo Historico
@@ -53,9 +60,9 @@ rm(shp_sp_valid)
 style <- tmap_style("col_blind")
 
 tm_shape(shp_sp) + 
-  tm_fill("homicidio", title = "Homicide Rate (Quantiles)", style="quantile", palette = "Reds") +
+  tm_fill("metropolitan_menor", title = "Taxa de Homicidio Por 100 Mil Habitantes (Quantiles)", style="quantile", palette = "Reds") +
   tm_borders(alpha = 0.1) +
-  tm_layout(main.title = "Homicide Rate across US Counties, 1990", main.title.size = 0.7 ,
+  tm_layout(main.title = "Taxa de Homicidio no estado de SP, 20--", main.title.size = 0.7 ,
             legend.position = c("right", "bottom"), legend.title.size = 0.8)
 
 # 3. Olhando para os Resíduos e Testando correlacao Espacial -------------------------------------
@@ -64,15 +71,15 @@ tm_shape(shp_sp) +
 # Therefore, residuals are very helpful in diagnosing whether your model is a good representation of reality or not. Most diagnostics of the assumptions for OLS regression rely on exploring the residuals.
 
 ## 3.1 Análise de regressão NÃO Espacial em dados espaciais (Observar os Resíduos) ---------------
-fit_1 <- lm(homicidio ~ density + education + urban_density + education + no_religion + family_instability + man_predisposition, shp_sp) 
+fit_1 <- lm(mean_homicide ~ man_predisposition + family_instability + density + urban_density + education_percent + no_regilion_percent + gini_2010 + income_percapta + metropolitan_menor, data = var_modelo) 
 summary(fit_1)
 
-### 3.1.1 Extraindo Resíduo do Modelo -----------------------------------------
+### 3.1.1 Extraindo Resíduo do Modelo ------------------------------------------------------
 # In those cases where the residual is negative this is telling us that the observed value is lower than the predicted (that is, our model is overpredicting the level of homicide for that observation) 
 # when the residual is positive the observed value is higher than the predicted (that is, our model is underpredicting the level of homicide for that observation).
 shp_sp$res_fit1 <- residuals(fit_1)
 
-### 3.1.2 Extraindo o Valor Previsto -----------------------------------------
+### 3.1.2 Extraindo o Valor Previsto ------------------------------------------------------
 shp_sp$fitted_fit1 <- fitted(fit_1)
 
 # With spatial data one useful thing to do is to look at any spatial patterning in the distribution of the residuals. Notice that the residuals are the difference between the observed values for homicide and the predicted values for homicide
@@ -85,6 +92,7 @@ shp_sp$fitted_fit1 <- fitted(fit_1)
 # So, for each observation, we subtract the mean and divide by the standard deviation. Remember, this is exactly what the scale function does, which we have introduced in week 7:
 
 shp_sp$sd_breaks <- scale(shp_sp$res_fit1)[,1] # because scale is made for matrices, we just need to get the first column using [,1]
+
 # this is equal to (ncovr_sf$res_fit1 - mean(ncovr_sf$res_fit1)) / sd(ncovr_sf$res_fit1)
 summary(shp_sp$sd_breaks)
 
@@ -99,11 +107,11 @@ tm_shape(shp_sp) +
             legend.position = c("right", "bottom"), legend.title.size = 0.8)
 # Notice the spatial patterning of areas of over-prediction (negative residuals, or blue tones) and under-prediction (positive residuals, or brown tones). This visual inspection of the residuals is telling you that spatial autocorrelation may be present here
 
-## 3.2 Autocorrelacao Espacial -----------------------------------------------
+## 3.2 Autocorrelacao Espacial ------------------------------------------------------------
 # This should give you an idea of the distribution of connectedness across the data, with counties having on average nearly 6 neighbours. Now we can generate the row-standardised spatial weight matrix and the Moran Scatterplot.
 print(w) # Vizinhanca (Rainha)
 
-### 3.2.1 Moran Test I
+### 3.2.1 Moran Test I -----------------------------------------------------------------
 wm <- nb2mat(w, style='B')
 rwm <- mat2listw(wm, style='W')
 
@@ -115,7 +123,7 @@ lm.morantest(fit_1, rwm, alternative="two.sided")
 # You will notice we obtain a statistically significant value for Moran’s I. The value of the Moran’s I test is not too high, but we still need to keep it in mind. If we diagnose that spatial autocorrelation is an issue, that is, 
 # that the errors (the residuals) are related systematically among themselves, then we have a problem and need to use a more appropriate approach: a spatial regression model.
 
-# 4. What to do Now? 
+# 4. What to do Now? -----------------------------------------------------------------
 # If the test is significant (as in this case), then we possibly need to think of a more suitable model to represent our data: a spatial regression model. Remember spatial dependence means that (more typically) there will be areas of spatial clustering for the residuals in our regression model. 
 # So our predicted line (or hyperplane) will systematically under-predict or over-predict in areas that are close to each other. That’s not good. We want a better model that does not display any spatial clustering in the residuals.
 
@@ -131,7 +139,7 @@ lm.morantest(fit_1, rwm, alternative="two.sided")
   # “If so the behaviour is likely to be highly social in nature, and understanding the interactions between interdependent units is critical to understanding the behaviour in question. For example, citizens may discuss politics across adjoining neighbours such that an increase in support for a candidate 
   # in one neighbourhood directly leads to an increase in support for the candidate in adjoining neighbourhoods” (Darmofal, 2015: 4)
 
-# 5. Spatial Regimes
+# 5. Spatial Regimes -----------------------------------------------------------------
 # Before we proceed to a more detailed description of these two models it is important that we examine another aspect of our model that also links to geography. Remember that when we brought up our data into R, we decided to test for the presence of an interaction. We looked at whether the role of unemployment was different in Southern and Northern states. 
 # We found that this interaction was indeed significant. Unemployment had a more significant effect in Southern than in Northern states. This was particularly obvious during the 1970s, when unemployment did not affect homicide rates in the Northern states, but it did lead to a decrease in homicide in the Southern states.
 
