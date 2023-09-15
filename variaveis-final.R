@@ -8,7 +8,7 @@ unemployment_rate2000_2010 <- read.xlsx("C:\\Users\\pedro\\Documents\\GitHub\\mo
   mutate(code_muni = as.factor(gsub("[^0-9.-]", "", Município)),
          Município = str_squish(str_remove(Município, "[0-9]+")),
          `2010` = as.numeric(as.character(`2010`))) |>
-  select(code_muni, municipio = Município, percent_desemprego_2000 = `2000`, percent_desemprego_2010 = `2010`, -`1991`)
+  select(code_muni, municipio = Município, `Taxa de desemprego 2000` = `2000`, `Taxa de desemprego 2010` = `2010`, -`1991`)
 
 # Funcao para limpar String
 limpo_address <- function(address) {
@@ -76,7 +76,7 @@ homicidio2010 <- re_organize(homicide, "municipio", "code_muni", "homicidio2010"
 homicidio2011 <- re_organize(homicide, "municipio", "code_muni", "homicidio2011")
 
 # Unindo em Banco de Dados Final
-homicidio_2000_2011 <- join_all(list(homicidio2000, homicidio2009, homicidio2010, homicidio2011), by = c("code_muni", "municipio", "code_muni_original"), type = "left")
+homicidio_2000_2011 <- plyr::join_all(list(homicidio2000, homicidio2009, homicidio2010, homicidio2011), by = c("code_muni", "municipio", "code_muni_original"), type = "left")
 
 # Padronizando Texto municipio
 homicidio_2000_2011 <- homicidio_2000_2011 |>
@@ -100,3 +100,70 @@ final_df_completo <- final_df_completo |>
          metropolitana_menor = ifelse(metropolitana_geral %in% c("Região Metropolitana de São Paulo", "Região Metropolitana de Campinas", "Região Metropolitana da Baixada Santista"), 1, 0)) 
 
 write.xlsx(final_df_completo, "C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Mono - Bancos de Dados\\Banco de Dados Atualizado\\final_df_completo.xlsx")
+
+
+## Again
+limpo_address <- function(address) {
+  limp_address <- str_replace_all(address, "[[:punct:]]", "")
+  limp_address <- toupper(limp_address)
+  limp_address <- unaccent(limp_address)
+  limp_address <- str_squish(limp_address)
+  return(limp_address)
+}
+
+independentes <- read.xlsx("C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Mono - Bancos de Dados\\Banco de Dados Atualizado\\var_independentes2.xlsx", sep.names = " ") |>
+  rename(municipio = Territorialidades) |>
+  mutate(municipio = str_remove_all(municipio, "(SP)")) |>
+  mutate(municipio = limpo_address(municipio)) # 703 
+
+ibge <- read.xlsx("C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Mono - Bancos de Dados\\Banco de Dados Atualizado\\code_muni_ibge.xlsx", sep.names = " ") |>
+  select(2, 3, 4, 5) |>
+  mutate(municipio = limpo_address(municipio),
+         code_muni = as.character(code_muni),
+         code_muni7 = as.character(code_muni7)) |>
+  filter(uf == "SP")
+
+df_final2 <- ibge |>
+  left_join(independentes, by = "municipio")
+
+df_final2 <- df_final2 |>
+  left_join(homicidio_2000_2011, by = "code_muni")
+
+metropolitana <- read.xlsx("C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Mono - Bancos de Dados\\Banco de Dados Atualizado\\regioesmetropolitanas.xlsx") |>
+  dplyr::select(code_muni7 = COD_MUN, metropolitana_geral = NOME_CATMETROPOL) |>
+  mutate(metropolitana = ifelse(!is.na(metropolitana_geral), 1, 0),
+         metropolitana_menor = ifelse(metropolitana_geral %in% c("Região Metropolitana de São Paulo", "Região Metropolitana de Campinas", "Região Metropolitana da Baixada Santista"), 1, 0))
+  
+df_final2 <- df_final2 |>
+  left_join(metropolitana, by = "code_muni7")
+
+colnames(df_final2) <- unaccent(colnames(df_final2))  
+colnames(df_final2) = gsub("%", "porcentagem", colnames(df_final2))
+colnames(df_final2) = gsub(",", "", colnames(df_final2))
+colnames(df_final2) = gsub("-", "", colnames(df_final2))
+
+
+df_final2 <- df_final2 |>
+  mutate(mediahomicidio2009_2011 = rowMeans(df_final2[, c("homicidio2009", "homicidio2010", "homicidio2011")], na.rm = TRUE),
+         `densidade demografica 2000` = (`Populacao urbana 2000`/`Populacao total 2000`)*100,
+         `densidade demografica 2010` = (`Populacao urbana 2010`/`Populacao total 2000`)*100,
+         `porcentagem populacao masculina de 15 a 19 anos de idade 2000` = (`Populacao masculina de 15 a 19 anos de idade 2000`/`Populacao total masculina 2000`)*100,
+         `porcentagem populacao masculina de 15 a 19 anos de idade 2010` = (`Populacao masculina de 15 a 19 anos de idade 2010`/`Populacao total masculina 2010`)*100,
+         `porcentagem populacao masculina 2000` = (`Populacao total masculina 2000`/`Populacao total 2000`)*100,
+         `porcentagem populacao masculina 2010` = (`Populacao total masculina 2010`/`Populacao total 2010`)*100)
+
+
+df_final2 <- df_final2 |>
+  left_join(unemployment_rate2000_2010, by = "code_muni")
+
+df_final2 <- df_final2 |> 
+  select(code_muni, code_muni7, municipio_f = municipio.x, homicidio2000, homicidio2009, homicidio2010, homicidio2011, mediahomicidio2009_2011, `porcentagem de maes chefes de familia sem fundamental completo e com pelo menos um filho menor de 15 anos de idade 2000`, `porcentagem de maes chefes de familia sem fundamental completo e com pelo menos um filho menor de 15 anos de idade 2010`, `porcentagem de 15 a 24 anos de idade que nao estudam nao trabalham e sao vulneraveis na populacao vulneravel dessa faixa etaria 2010`, `porcentagem de mulheres de 10 a 17 anos de idade que tiveram filhos 2000`, `porcentagem de mulheres de 10 a 17 anos de idade que tiveram filhos 2010`, `porcentagem de 15 a 24 anos de idade que nao estudam nao trabalham e sao vulneraveis na populacao vulneravel dessa faixa etaria 2000`, `porcentagem de 15 a 24 anos de idade que nao estudam nao trabalham e sao vulneraveis na populacao vulneravel dessa faixa etaria 2010`, `porcentagem populacao masculina de 15 a 19 anos de idade 2000`, `porcentagem populacao masculina de 15 a 19 anos de idade 2010`, `porcentagem populacao masculina 2000`, `porcentagem populacao masculina 2010`, `porcentagem de 6 a 17 anos de idade na escola 2000`, `porcentagem de 6 a 17 anos de idade na escola 2010`, `densidade demografica 2000`, `densidade demografica 2010`, `Renda per capita 2000`, `Renda per capita 2010`, `Indice de TheilL 2000`, `Indice de TheilL 2010`, `Indice de Gini 2000`, `Indice de Gini 2010`, `Indice de Atkinson  Renda 2012`, `Indice de Atkinson  Renda 2013`, `Taxa de desocupacao  15 a 17 anos de idade 2000`, `Taxa de desocupacao  15 a 17 anos de idade 2010`, `Taxa de desemprego 2000`, `Taxa de desemprego 2010`, metropolitana, metropolitana_menor, everything(), -municipio, -municipio.y, duplicated, duplicated2, duplicated3)
+
+df_final2 <- df_final2 |>
+  select(-duplicated, -duplicated2, -duplicated3)
+
+df_final2 <- df_final2 |>
+  drop_na(code_muni) |>
+  distinct(code_muni, .keep_all = T)
+
+write.xlsx(df_final2, "C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Mono - Bancos de Dados\\Banco de Dados Atualizado\\final_df_completo2.xlsx")
