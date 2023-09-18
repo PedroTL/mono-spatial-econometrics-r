@@ -64,6 +64,8 @@ tm_shape(shp_sp) +
 # Criando diff variaveis independentes
 shp_sp_subset3 <- clean_names(shp_sp)
 
+###
+
 shp_sp_subset3 <- shp_sp_subset3 |>
   select(everything(), -c("code_muni_y", "name_muni"))
 
@@ -103,12 +105,16 @@ shp_sp_subset_independente_diff <- shp_sp_subset_independente_diff |>
 shp_sp <- shp_sp |>
   left_join(shp_sp_subset_independente_diff, by = "code_muni")
 
-shp_sp_subset_f <- shp_sp
+###
+
+shp_sp_subset_f <- shp_sp_subset3
 
 shp_sp_subset_f <- shp_sp_subset_f |>
-  select(code_muni, name_muni, mediahomicidio2009_2011, densidade_demografica_2010, indice_de_gini_2010, indice_de_theil_l_2010, porcentagem_de_15_a_24_anos_de_idade_que_nao_estudam_nao_trabalham_e_sao_vulneraveis_na_populacao_vulneravel_dessa_faixa_etaria_2010, porcentagem_de_6_a_17_anos_de_idade_na_escola_2010, porcentagem_de_maes_chefes_de_familia_sem_fundamental_completo_e_com_pelo_menos_um_filho_menor_de_15_anos_de_idade_2010, porcentagem_de_mulheres_de_10_a_17_anos_de_idade_que_tiveram_filhos_2010, porcentagem_populacao_masculina_2010, renda_per_capita_2010, taxa_de_desemprego_2010, taxa_de_desocupacao_15_a_17_anos_de_idade_2010, geometry = geometry.x, metropolitana, metropolitana_menor) |>
-  drop_na() |>
-  filter(code_muni != 3520400)
+  select(code_muni, municipio_f, mediahomicidio2009_2011, densidade_demografica_2010, indice_de_gini_2010, indice_de_theil_l_2010, porcentagem_de_15_a_24_anos_de_idade_que_nao_estudam_nao_trabalham_e_sao_vulneraveis_na_populacao_vulneravel_dessa_faixa_etaria_2010, porcentagem_de_6_a_17_anos_de_idade_na_escola_2010, porcentagem_de_maes_chefes_de_familia_sem_fundamental_completo_e_com_pelo_menos_um_filho_menor_de_15_anos_de_idade_2010, porcentagem_de_mulheres_de_10_a_17_anos_de_idade_que_tiveram_filhos_2010, porcentagem_populacao_masculina_2010, renda_per_capita_2010, taxa_de_desemprego_2010, taxa_de_desocupacao_15_a_17_anos_de_idade_2010, geometry, metropolitana, metropolitana_menor) |>
+  filter(code_muni != 3520400) |>
+  mutate(metropolitana_menor = replace_na(metropolitana_menor, 0),
+         metropolitana = replace_na(metropolitana, 0)) |>
+  drop_na()
 
 
 ## 3.1 Análise de regressão NÃO Espacial em dados espaciais (Observar os Resíduos) ---------------
@@ -145,7 +151,8 @@ summary(shp_sp_subset_f$sd_breaks)
 
 # Next we use a new style, fixed, within the tm_fill function. When we break the variable into classes using the fixed argument we need to specify the boundaries of the classes. We do this using the breaks argument. 
 # In this case we are going to ask R to create 7 classes based on standard deviations away from the mean. Remember that a value of 1 would be 1 standard deviation (s.d.) higher than the mean, and -1 would be one s.d. lower. If we assume normal distribution, then 68% of all counties should lie within the middle band from -1 to +1 s.d. 
-my_breaks <- c(-14, -3, -2, -1, 1, 2, 3, 14)
+my_breaks <- c(-Inf, -2.95486, -0.15984, -0.02648, 0.10304, 23.05125, Inf)
+
 tm_shape(shp_sp_subset_f) + 
   tm_fill("sd_breaks", title = "Residuals", style = "quantile", palette = "-RdBu", midpoint = 0) +
   tm_borders(alpha = 0.1) +
@@ -238,23 +245,24 @@ n_metrop_shp_sp_subset_f <- subset(shp_sp_subset_f, metropolitana_menor == 0)
 # We have split the data in two, so that means that before we do this we need to create new files for the spatial weight matrix: in particular we will create one using first order queen criteria.
 
 # vizinhanca rainha para regioes metropolitanas
-w_metrop <- poly2nb(n_metrop_shp_sp_subset_f, row.names=n_metrop_shp_sp_subset_f$code_muni)
+w_metrop <- poly2nb(shp_sp_subset_f, row.names=n_metrop_shp_sp_subset_f$code_muni)
 print(w_metrop) # Vizinhanca (Rainha)
 
 wm_n_metrop <- nb2mat(w_metrop, style='B')
-rwm_n_metrop <- mat2listw(wm_metrop, style='W')
+rwm_n_metrop <- mat2listw(wm_n_metrop, style='W')
 
-fit_2_metrop <- lm(mediahomicidio2009_2011 ~ densidade_demografica_2010 + indice_de_gini_2010 + indice_de_theil_l_2010 + porcentagem_de_15_a_24_anos_de_idade_que_nao_estudam_nao_trabalham_e_sao_vulneraveis_na_populacao_vulneravel_dessa_faixa_etaria_2010 + porcentagem_de_6_a_17_anos_de_idade_na_escola_2010 + porcentagem_de_maes_chefes_de_familia_sem_fundamental_completo_e_com_pelo_menos_um_filho_menor_de_15_anos_de_idade_2010 + porcentagem_de_mulheres_de_10_a_17_anos_de_idade_que_tiveram_filhos_2010 + porcentagem_populacao_masculina_2010 + renda_per_capita_2010 + taxa_de_desemprego_2010 + taxa_de_desocupacao_15_a_17_anos_de_idade_2010, data = n_metrop_shp_sp_subset_f) 
+fit_2_metrop <- lm(mediahomicidio2009_2011 ~ densidade_demografica_2010 + indice_de_gini_2010 + indice_de_theil_l_2010 + porcentagem_de_15_a_24_anos_de_idade_que_nao_estudam_nao_trabalham_e_sao_vulneraveis_na_populacao_vulneravel_dessa_faixa_etaria_2010 + porcentagem_de_6_a_17_anos_de_idade_na_escola_2010 + porcentagem_de_maes_chefes_de_familia_sem_fundamental_completo_e_com_pelo_menos_um_filho_menor_de_15_anos_de_idade_2010 + porcentagem_de_mulheres_de_10_a_17_anos_de_idade_que_tiveram_filhos_2010 + porcentagem_populacao_masculina_2010 + renda_per_capita_2010 + taxa_de_desemprego_2010 + taxa_de_desocupacao_15_a_17_anos_de_idade_2010, data = shp_sp_subset_f) 
 summary(fit_2_metrop)
 
 lm.morantest(fit_2_metrop, rwm_n_metrop, alternative = "two.sided")
 
 #  OLS regression won’t do. In order to decide whether to fit a spatial error or a spatially lagged model we need to run the Lagrange Multipliers.
+
 ### 5.2.1 Lagrange multiplier test
 # Both Lagrange multiplier tests (for the error and the lagged models, LMerr and LMlag respectively), as well as their robust forms (RLMerr and RLMLag, 
 # also respectively) are included in the lm.LMtests function. Again, a regression object and a spatial listw object must be passed as arguments.
 # In addition, the tests must be specified as a character vector (the default is only LMerror), using the c( ) operator (concatenate), as illustrated below.
-lm.LMtests(fit_2_metrop, rwm_metrop, test = c("LMerr","LMlag","RLMerr","RLMlag","SARMA"))
+lm.LMtests(fit_2_metrop, rwm_n_metrop, test = c("LMerr","LMlag","RLMerr","RLMlag","SARMA"))
 
 # How do we interpret the Lagrange Multipliers? First we look at the standard ones (LMerr and LMlag). 
 # If both are below the .05 level this means we need to have a look at the robust version of these tests (Robust LM)
