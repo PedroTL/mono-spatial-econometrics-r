@@ -154,12 +154,16 @@ summary(shp_sp_subset_f$sd_breaks)
 my_breaks <- c(-Inf, -2.95486, -0.15984, -0.02648, 0.10304, 23.05125, Inf)
 
 tm_shape(shp_sp_subset_f) + 
-  tm_fill("sd_breaks", title = "Residuals", style = "quantile", palette = "-RdBu", midpoint = 0) +
+  tm_fill("sd_breaks", title = "Residuals", breaks = my_breaks, palette = "-RdBu", midpoint = 0) +
   tm_borders(alpha = 0.1) +
   tm_layout(main.title = "Residuals", main.title.size = 0.7 ,
             legend.position = c("left", "bottom"), legend.hist.size = 0.3, legend.title.size = 0.8)
 
+#style = "quantile"
+
 # Notice the spatial patterning of areas of over-prediction (negative residuals, or blue tones) and under-prediction (positive residuals, or brown tones). This visual inspection of the residuals is telling you that spatial autocorrelation may be present here
+# Do the residuals look randomly distributed there? Not really. High residuals are often near other high residuals, and low residuals are near other low residuals. That’s bad. It means our errors are correlated and our observations aren’t independent.
+# We can also look for clustering using what’s called a Moran’s I test. Moran’s I tests for whether or not your residuals are clustered more than chance would predict; a significant p-value indicates that yes, the data is clustered.
 
 ## 3.2 Autocorrelacao Espacial ------------------------------------------------------------
 # This should give you an idea of the distribution of connectedness across the data, with counties having on average nearly 6 neighbours. Now we can generate the row-standardised spatial weight matrix and the Moran Scatterplot.
