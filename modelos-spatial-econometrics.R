@@ -18,9 +18,10 @@ library(spgwr) # Regressao ponderada geografica
 library(openxlsx)
 
 
-pacman::p_load(tidyverse, openxlsx, geobr, tmap, spdep, janitor, install = TRUE)
+pacman::p_load(tidyverse, openxlsx, geobr, tmap, spdep, janitor, spatialreg, install = TRUE)
 setwd("C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Mono - Bancos de Dados\\Banco de Dados Atualizado")
 
+options(scipen=999)
 # 1. Banco de Dados -----------------------------------------------
 ## 1.1 final_df_completo (Homicidios (2000, 2009, 2010, 2011) ~ Variaveis Independentes) ------------
 var_modelo <- read.xlsx("final_df_completo2.xlsx", sep = " ") |>
@@ -198,6 +199,9 @@ lm.morantest(fit_2, rwm, alternative="two.sided")
 
 # There are two general ways of incorporating spatial dependence in a regression model, through what we called a spatial error model 
 # or by means of a spatially lagged model. 
+
+# https://www.bing.com/images/search?view=detailV2&ccid=g6n2ppd2&id=99EF828BA059515009CFE8475E738DB32A195D8C&thid=OIP.g6n2ppd25_gLYs1kbNOj4gHaFj&mediaurl=https%3a%2f%2fimage5.slideserve.com%2f9731959%2fspatial-lag-and-spatial-error-models-conceptual-comparison-l.jpg&cdnurl=https%3a%2f%2fth.bing.com%2fth%2fid%2fR.83a9f6a69776e7f80b62cd646cd3a3e2%3frik%3djF0ZKrONc15H6A%26pid%3dImgRaw%26r%3d0&exph=768&expw=1024&q=spatial+error+spatial+lag+differences&simid=608043236554846527&FORM=IRPRST&ck=AF412BD79DD27CD21E27B090CE6F8C18&selectedIndex=4&ajaxhist=0&ajaxserp=0
+
 # There are spdep functions that provides us with some tools to help us make a decision as to which of these two is most appropriate: 
 # the Lagrange Multiplier tests.
 
@@ -240,7 +244,7 @@ ggplot(shp_sp_subset_f, aes(x = res_fit2, colour = as.factor(metropolitana_menor
 # function from dplyr to split datasets based on values of a variable.
 metrop_shp_sp_subset_f <- subset(shp_sp_subset_f, metropolitana == 1)
 n_metrop_shp_sp_subset_f <- subset(shp_sp_subset_f, metropolitana_menor == 0)
-
+n_metrop_shp_sp_subset_f <- shp_sp_subset_f
 ## 5.2 Lagrange multipliers
 # The Moran’s I test statistic has high power against a range of spatial alternatives. However, it does not provide much help in terms of which alternative model would be most appropriate. 
 # The Lagrange Multiplier test statistics do allow a distinction between spatial error models and spatial lag models.
@@ -262,7 +266,7 @@ lm.morantest(fit_2_metrop, rwm_n_metrop, alternative = "two.sided")
 
 #  OLS regression won’t do. In order to decide whether to fit a spatial error or a spatially lagged model we need to run the Lagrange Multipliers.
 
-### 5.2.1 Lagrange multiplier test
+### 5.2.1 Lagrange multiplier test ------------------------
 # Both Lagrange multiplier tests (for the error and the lagged models, LMerr and LMlag respectively), as well as their robust forms (RLMerr and RLMLag, 
 # also respectively) are included in the lm.LMtests function. Again, a regression object and a spatial listw object must be passed as arguments.
 # In addition, the tests must be specified as a character vector (the default is only LMerror), using the c( ) operator (concatenate), as illustrated below.
@@ -281,3 +285,89 @@ lm.LMtests(fit_2_metrop, rwm_n_metrop, test = c("LMerr","LMlag","RLMerr","RLMlag
 # In the rare instance that both would be highly significant, go with the model with the largest value for the test statistic. However, in this situation, some caution is needed, since there may be other sources of misspecification.
 # One obvious action to take is to consider the results for different spatial weight and/or change the basic (i.e., not the spatial part) specification of the model. there are also rare instances where neither of the Robust LM test statistics are significant.
 # In those cases, more serious specification problems are likely present and those should be addressed first.”
+
+### 5.2.2 Fitting and Interpreting a spatial lagged model -------------------
+
+# Just to reiterate,the Lagrange Multiplier suggests this spatial lag test may not be appropriate, but that a spatial error test may be better. However, we can also make a theory-based argument for running this model. 
+# It may be the case that we believe that the values of y in one county, i, are directly influenced by the values of y that exist in the “neighbours” of i.
+# This is an influence that goes beyond other explanatory variables that are specific to i.
+# Remember what we said earlier in the spatial lag model we are simply adding as an additional explanatory variable the values of y in the surrounding area. What we mean by “surrounding” will be defined by our spatial weight matrix. 
+# It’s important to emphasise that one has to think very carefully and explore appropriate definitions of “surrounding” (as we discussed, though just superficially, in the section on spatial clustering a few weeks ago). 
+# We are using here the first order queen criteria, but in real practice you would need to explore whether this is the best definition and one that makes theoretical sense.
+
+# Maximum Likelihood (ML) estimation of the spatial lag model is carried out with the lagsarlm() function. 
+# The required arguments are a regression “formula,” a data set and a listw spatial weights object. The default method uses Ord’s eigenvalue decomposition of the spatial weights matrix. This function lives in the spatialreg package.
+fit_2_lag <- lagsarlm(mediahomicidio2009_2011 ~ densidade_demografica_2010 + indice_de_gini_2010 + indice_de_theil_l_2010 + porcentagem_de_15_a_24_anos_de_idade_que_nao_estudam_nao_trabalham_e_sao_vulneraveis_na_populacao_vulneravel_dessa_faixa_etaria_2010 + porcentagem_de_6_a_17_anos_de_idade_na_escola_2010 + porcentagem_de_maes_chefes_de_familia_sem_fundamental_completo_e_com_pelo_menos_um_filho_menor_de_15_anos_de_idade_2010 + porcentagem_de_mulheres_de_10_a_17_anos_de_idade_que_tiveram_filhos_2010 + porcentagem_populacao_masculina_2010 + renda_per_capita_2010 + taxa_de_desemprego_2010 + taxa_de_desocupacao_15_a_17_anos_de_idade_2010, data = shp_sp_subset_f, rwm_n_metrop)
+summary(fit_2_lag)
+
+# As expected, the spatial autoregressive parameter (Rho) is statistically significant, as indicated by the p-value of 0.003 on an asymptotic t-test (based on the asymptotic variance matrix). The Likelihood Ratio test (LR) on this parameter is also significant (p value 0.003).
+# How do you interpret these results? First, you need to look at the general measures of fit of the model. I know what you are thinking. Look at the R Square and compare them, right? Well, don’t. This R Square is not a real R Square, but a pseudo-R Square and therefore is not 
+# comparable to the one we obtain from the OLS regression model. Instead we can look at the Akaike Information Criterion (AIC). We see that the lag model has an AIC of 9414.9 whereas the linear model with no lags has an AIC of 9422 (AIC for lm: 9422), so this is telling us there is a 
+# better fit when we include the spatial lag.
+
+# In our spatial lag model you will notice that there is a new term Rho. What is this? This is our spatial lag. It is a variable that measures the homicide rate in the counties that are defined as surrounding each county in our spatial weights matrix. We are simply using this variable
+# as an additional explanatory variable to our model, so that we can appropriately take into account the spatial clustering detected by our Moran’s I test. 
+# You will notice that the estimated coefficient for this term is both positive and statistically significant. In other words, when the homicide rate in surrounding areas increases, so does the homicide rate in each county, even when we adjust for the other explanatory variables in our model. 
+# The fact the lag is significant adds further evidence that this is a better model than the OLS regression specification.In our spatial lag model you will notice that there is a new term Rho. What is this? This is our spatial lag. It is a variable that measures the homicide rate in the counties 
+# that are defined as surrounding each county in our spatial weights matrix. We are simply using this variable as an additional explanatory variable to our model, so that we can appropriately take into account the spatial clustering detected by our Moran’s I test. You will notice that the estimated 
+# coefficient for this term is both positive and statistically significant. In other words, when the homicide rate in surrounding areas increases, so does the homicide rate in each county, even when we adjust for the other explanatory variables in our model. The fact the lag is significant adds further
+# evidence that this is a better model than the OLS regression specification.
+
+# you also see at the bottom further tests for spatial dependence, a likelihood ratio test. This is not a test for residual spatial autocorrelation after we introduce our spatial lag. What you want is for this test to be significant because in essence it is further evidence that the spatial lag model is a good fit.
+# How about the coefficients? It may be tempting to look at the regression coefficients for the other explanatory variables for the original OLS model and compare them to those in the spatial lag model. But you should be careful when doing this. Their meaning now has changed:
+# “Interpreting the substantive effects of each predictor in a spatial lag model is much more complex than in a nonspatial model (or in a spatial error model) because of the presence of the spatial multiplier that links the independent variables to the dependent. In the nonspatial model, 
+# it does not matter which unit is experiencing the change on the independent variable. The effect” in the dependent variable “of a change” in the value of an independent variable “is constant across all observations” (Darmofal, 2015: 107)
+
+# Remember, when interpreting a regression coefficient for variable Xi, we say that they indicate how much Y goes up or down for every one unit increase in Xi
+# when holding all other variables in the model constant. In our example, for the nonspatial model this effect is the same for every county in our dataset. 
+# But in the spatial lag model things are not the same. We cannot interpret the regression coefficients for the substantive predictors in the same way because 
+# the “substantive effects of the independent variables vary by observation as a result of the different neighbors for each unit in the data” (Darmofal, 2015: 107).
+
+# In the OLS regression model, the coefficients for any of the explanatory variables measure the absolute impact of these variables. It is a simpler scenario. We look at the effect of X in Y within each county. 
+# So X in county A affects Y in county A. In the spatial lag model there are two components to how X affects Y. 
+# X affects Y within each county directly but remember we are also including the spatial lag, the measure of Y in the surrounding counties (call them B, C, and D). 
+# So our model includes the effect of X in county A in the level of Y in county A. By virtue of including the spatial lag (a measure of Y in county B, C and D) we are indirectly incorporating as 
+# well the effect that X has on Y in counties B, C, and D. So the effect of a covariate (independent variable) is the sum of two particular effects: a direct, local effect of the covariate in that unit, and an indirect, spillover effect due to the spatial lag.
+
+# In other words, in the spatial lag model, the coefficients only focus on the “short-run impact” of xi on y i, rather than the net effect. As Ward and Gleditsch (2008) explain “Since the value of yi
+# will influence the level of” homicide “in other” counties yj and these yj, in turn, feedback on to yi, we need to take into account the additional effects that the short impact of xi exerts on yi
+# through its impact on the level of" homicide “in other” counties. 
+# You can still read the coefficients in the same way but need to keep in mind that they are not measuring the net effect. Part of their effect will be captured by the spatial lag. Yet, you may still want to have a look at whether things change dramatically, particularly in terms of their significance (which is not the case in this example).
+
+# In sum, this implies that a change in the ith region’s predictor can affect the jth region’s outcome. We have 2 situations: (a) the direct impact of an observation’s predictor on its own outcome, and (b) the indirect impact of an observation’s neighbour’s predictor on its outcome.This leads to three quantities that we want to know:
+# Average Direct Impact, which is similar to a traditional interpretation
+# Average Total impact, which would be the total of direct and indirect impacts of a predictor on one’s outcome
+# Average Indirect impact, which would be the average impact of one’s neighbours on one’s outcome
+
+# These quantities can be found using the impacts() function in the spatialreg library. This function performs the calculation of impacts for spatial lag, which is needed in order to interpret the regression coefficients correctly, because of the spillovers between the terms in these data generation processes.
+# Impacts takes the argument of our model (fit_2_lag), as well as our spatial weights. Now we could specify our already existing spatial weights object rwm_n using the listw= parameter, however, we have a very large matrix, and this might mean our calculations will take all day (if you don’t believe me, try it! but don’t say I didn’t warn you!)
+
+# Instead, what we can do is follow the example that converts the spatial weight matrix into a “sparse” matrix, and power it up using the trW() function. This follows the approximation methods described in Lesage and Pace, 2009. 
+# It prepares a vector of traces of powers of a spatial weights matrix Here, we use Monte Carlo simulation to obtain simulated distributions of the various impacts. If we use this, our outcome will be much faster. The trW() function needs our spatial weights to be in a sparse matrix class object, so we can transform this using the as() function:
+
+W <- as(rwm_n_metrop, "CsparseMatrix")
+trMC <- trW(W, type="MC")
+
+# Finally, R= asks for the number of simulations used to compute the distribution for the impact measures.
+im<-impacts(fit_2_lag, tr = trMC, R=100)
+sums <- summary(im, zstats = T)
+data.frame(sums$res)
+data.frame(sums$pzmat)
+
+### 5.2.3 Fitting an interpreting a spatial error model ------------
+
+# The spatial lag model is probably the most common specification and maybe the most generally useful way to think about spatial dependence. But we can also enter the spatial dependence, as we mentioned through the error term in our regression equation. 
+# Whereas the spatial lag model sees the spatial dependence as substantively meaningful (in that y, say homicide, in county i is influenced by homicide in its neighbours), the spatial error model simply treats the spatial dependence as a nuisance.
+
+# This model focuses on estimating the regression parameters for the explanatory variables of interest and disregards the possibility that the spatial clustering, the spatial autocorrelation, may reflect something meaningful (other than attributional dependence as explained earlier). 
+# So instead of assuming that a spatial lag influences the dependent variable we estimate a model that relaxes the standard regression model assumption about the need for the errors to be independent. 
+
+# Maximum likelihood estimation of the spatial error model is similar to the lag procedure and implemented in the errorsarlm() function. Again, the formula, data set and a listw spatial weights object must be specified, as illustrated below.
+fit_3_err <- errorsarlm(mediahomicidio2009_2011 ~ densidade_demografica_2010 + indice_de_gini_2010 + indice_de_theil_l_2010 + porcentagem_de_15_a_24_anos_de_idade_que_nao_estudam_nao_trabalham_e_sao_vulneraveis_na_populacao_vulneravel_dessa_faixa_etaria_2010 + porcentagem_de_6_a_17_anos_de_idade_na_escola_2010 + porcentagem_de_maes_chefes_de_familia_sem_fundamental_completo_e_com_pelo_menos_um_filho_menor_de_15_anos_de_idade_2010 + porcentagem_de_mulheres_de_10_a_17_anos_de_idade_que_tiveram_filhos_2010 + porcentagem_populacao_masculina_2010 + renda_per_capita_2010 + taxa_de_desemprego_2010 + taxa_de_desocupacao_15_a_17_anos_de_idade_2010, data = shp_sp_subset_f, rwm_n_metrop)
+summary(fit_3_err)
+
+#  In this case, you can compare the regression coefficients with those from the OLS model, since we don’t have a spatial lag capturing some of their effect.
+# We have reached a point now where you are able to model spatial dependence. How exciting! No longer will you be using OLS models for your data with spatial 
+# elements, as now, finally we have learned how to account for Tobler’s first law: (I imagine this all said together in chorus by this point…!!) everything is related to everything else, but near things are more related to each other than far away things! 
+# Remember - most of what you study as criminologists takes place in a particular place in a particular time. Now we haven’t covered time in this module, but you can sure account for the space component now. Well done all!
+
