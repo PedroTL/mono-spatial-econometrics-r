@@ -1,4 +1,4 @@
-pacman::p_load(tidyverse, openxlsx, geobr, tmap, spdep, janitor, spatialreg, lme4, install = TRUE)
+pacman::p_load(tidyverse, openxlsx, geobr, tmap, spdep, janitor, spatialreg, lme4, plm, install = TRUE)
 
 # Modelo simplificado
 # Variaveis independentes
@@ -15,10 +15,15 @@ model_1 <- model_1 |>
          grau_urbanizacao_2010 = (populacao_urbana_2010/populacao_total_2010),
          percent_de_extremamente_pobres_2010_2 = percent_de_extremamente_pobres_2010/100) |>
   filter(codigo_municipio_completo != "3520400")
+model_1[is.na(model_1)] <- 1
+
 
 # Modelo Inicial OLS (Linear Simples)
-fit_1 <- lm(media_homicidio_2009_2011 ~ percent_de_extremamente_pobres_2010_2 + indice_de_gini_2010 + indice_de_theil_l_2010 + idhm_2010 + grau_urbanizacao_2010, model_1)
+fit_1 <- lm(homicidio_2010 ~ percent_de_extremamente_pobres_2010_2 + indice_de_gini_2010 + indice_de_theil_l_2010 + idhm_2010 + grau_urbanizacao_2010, model_1)
 summary(fit_1)
+
+fit_2 <- lm(homicidio_2010 ~ log(percent_de_extremamente_pobres_2010_2) + indice_de_gini_2010 + indice_de_theil_l_2010 + idhm_2010 + grau_urbanizacao_2010, model_2_scaled)
+summary(fit_2)
 
 # Selecionar Variaveis
 model_2 <- model_1 %>%
@@ -29,7 +34,7 @@ model_2_scaled <- model_2 |>
   mutate(across(where(is.numeric) & !contains("homicidio"), ~scale(.)))
 
 # Multicolineariedade
-corr <- stats::cor(model_2_scaled[, 7:11], use='pairwise.complete.obs')
+corr <- stats::cor(model_2_scaled[, 6:10], use='pairwise.complete.obs')
 
 # Wider
 model_2_scaled_wide <- model_2_scaled %>%
@@ -42,9 +47,10 @@ model_2_scaled_wide_pannel <-  pdata.frame(model_2_scaled_wide, index = c("codig
 # Modelo Painel
 # Pooled OLS regression model is simply a linear regression model fitted using the OLS
 # AIC is used to compare different possible models and determine which one is the best fit for the data.
-fit_2 <- plm(homicidio ~ percent_de_extremamente_pobres_2010_2 + grau_urbanizacao_2010 + idhm_2010 + indice_de_theil_l_2010 + indice_de_gini_2010, data = model_2_scaled_wide_pannel, model = "pooling", effect = "twoways")
-fit_3 <- plm(homicidio ~ percent_de_extremamente_pobres_2010_2 + grau_urbanizacao_2010 + idhm_2010 + indice_de_theil_l_2010 + indice_de_gini_2010, data = model_2_scaled_wide_pannel, model = "fd")
+fit_2 <- plm(homicidio ~ log(percent_de_extremamente_pobres_2010_2) + grau_urbanizacao_2010 + idhm_2010 + indice_de_theil_l_2010 + indice_de_gini_2010, data = model_2_scaled_wide_pannel, model = "pooling", effect = "twoways", na.action = na.exclude)
+fit_3 <- plm(homicidio ~ log(percent_de_extremamente_pobres_2010_2) + grau_urbanizacao_2010 + idhm_2010 + indice_de_theil_l_2010 + indice_de_gini_2010, data = model_2_scaled_wide_pannel, model = "fd")
 summary(fit_2)
+summary(fit_3)
 
 pFtest(fit_3, fit_2) # Autocorrelacao
 plmtest(fit_2, type = "bp", effect = "individual")
