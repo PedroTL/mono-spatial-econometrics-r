@@ -4,7 +4,9 @@ independentes_simples <- read.xlsx("C:\\Users\\pedro\\Documents\\GitHub\\mono-sp
          Territorialidades = str_squish(str_remove_all(Territorialidades, "\\(SP\\)")),
          Territorialidades = str_squish(str_replace_all(Territorialidades, "-", " ")),
          Territorialidades = toupper(Territorialidades),
-         Territorialidades = ifelse(Territorialidades == "EMBU", "EMBU DAS ARTES", Territorialidades)) |>
+         Territorialidades = ifelse(Territorialidades == "EMBU", "EMBU DAS ARTES", Territorialidades),
+         Territorialidades = ifelse(Territorialidades == "SAO LUIS DO PARAITINGA", "SAO LUIZ DO PARAITINGA", Territorialidades),
+         Territorialidades = ifelse(Territorialidades == "FLORINIA", "FLORINEA", Territorialidades)) |>
   rename(municipio_f = Territorialidades) |>
   clean_names()
 
@@ -28,7 +30,7 @@ homicide <- read.csv2("C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econome
   filter(período %in% c(2000, 2009, 2010, 2011, 2016, 2017, 2018, 2019))
 
 # Realizando Pivot Wider e selecionando anos 2000, 2009, 2010, 2011
-homicide <- homicide |>
+homicide2 <- homicide |>
   group_by(período) |>
   mutate(row = row_number()) |>
   tidyr::pivot_wider(names_from = período, values_from = homicidio) |>
@@ -56,17 +58,20 @@ re_organize <- function(df, municipio_col, code_muni_col, homicide_col) {
 }
 
 # Selecionando anos de 2000, 2009, 2010, 2011
-homicidio2000 <- re_organize(homicide, "municipio", "code_muni", "homicidio_2000")
-homicidio2009 <- re_organize(homicide, "municipio", "code_muni", "homicidio_2009")
-homicidio2010 <- re_organize(homicide, "municipio", "code_muni", "homicidio_2010")
-homicidio2011 <- re_organize(homicide, "municipio", "code_muni", "homicidio_2011")
-homicidio2016 <- re_organize(homicide, "municipio", "code_muni", "homicidio_2016")
-homicidio2017 <- re_organize(homicide, "municipio", "code_muni", "homicidio_2017")
-homicidio2018 <- re_organize(homicide, "municipio", "code_muni", "homicidio_2018")
-homicidio2019 <- re_organize(homicide, "municipio", "code_muni", "homicidio_2019")
+homicidio2000 <- re_organize(homicide2, "municipio", "code_muni", "homicidio_2000")
+homicidio2009 <- re_organize(homicide2, "municipio", "code_muni", "homicidio_2009")
+homicidio2010 <- re_organize(homicide2, "municipio", "code_muni", "homicidio_2010")
+homicidio2011 <- re_organize(homicide2, "municipio", "code_muni", "homicidio_2011")
+homicidio2016 <- re_organize(homicide2, "municipio", "code_muni", "homicidio_2016")
+homicidio2017 <- re_organize(homicide2, "municipio", "code_muni", "homicidio_2017")
+homicidio2018 <- re_organize(homicide2, "municipio", "code_muni", "homicidio_2018")
+homicidio2019 <- re_organize(homicide2, "municipio", "code_muni", "homicidio_2019")
 
 # Unindo em Banco de Dados Final
-homicide_final <- plyr::join_all(list(homicidio2000, homicidio2009, homicidio2010, homicidio2011, homicidio2016, homicidio2017, homicidio2018, homicidio2019), by = c("code_muni", "municipio", "codigo_municipio_completo"), type = "left")
+homicide_final <- plyr::join_all(list(homicidio2000, homicidio2009, homicidio2010, homicidio2011, homicidio2016, homicidio2017, homicidio2018, homicidio2019), by = c("code_muni", "municipio"), type = "left")
+
+homicide_final <- homicide_final |>
+  select(-everything(contains(c("."))))
 
 rm(homicidio2000, homicidio2009, homicidio2010, homicidio2011, homicidio2016, homicidio2017, homicidio2018, homicidio2019)
 
