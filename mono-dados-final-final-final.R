@@ -22,7 +22,7 @@ independentes_simples <- read.xlsx("C:\\Users\\pedro\\Documents\\GitHub\\mono-sp
   filter(UF %in% c(35, 31,  33, 32) & ANO == 2010) |>
   select(UF, Codmun6, Codmun7, municipio = Município, percent_pop_extremamente_pobre_2010 = PIND, idhm_2010 = IDHM, gini_2010 = GINI, theil_2010 = THEIL, percent_mulher_15a17_com_um_filho_2010 = T_M15A17CF, percent_criancas_6a14_fora_escola_2010 = T_FORA6A14, percent_desocupacao_18_mais_2010 = T_DES18M, pop_total_2010 = pesotot, pop_total_urbana_2010 = pesourb, homem_15a19_2010 = HOMEM15A19, homem_20a24_2010 = HOMEM20A24, homem_25a29_2010 = HOMEM25A29) 
 
-# Variavel Dependente
+# Variavel Dependente homicidio 100 mil hab
 homicide <- read.csv2("C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Mono - Bancos de Dados\\Banco de Dados Atualizado\\homicidios2010.csv") |>
   rename(Codmun7 = cod, homicidio = valor, ano = período, municipio = nome) |>
   filter(ano %in% c(2009, 2010, 2011, 2016, 2017, 2018, 2019))
@@ -63,20 +63,73 @@ homicide_final <- homicide_final |>
 rm(homicidio2009, homicidio2010, homicidio2011, homicidio2016, homicidio2017, homicidio2018, homicidio2019)
 rm(homicide, homicide2)
 
-# Banco de Dados Final Join
-independentes_final <- independentes_simples |>
-  left_join(homicide_final, by = c("Codmun7")) |>
-  select(UF, Codmun6, Codmun7, municipio = municipio.x, municipio_ipea = municipio.y, everything())
+# Salvando homicidio (contagem) e var independentes
+write.xlsx(independentes_final, "C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Banco Dados Simples\\bd_final_ind_dep_count.xlsx")
 
-# Calculando Varíaveis
-independentes_final <- independentes_final |>
-  mutate(percent_pop_homem_15a29_2010 = (raster::rowSums(across(homem_15a19_2010:homem_25a29_2010), na.rm = TRUE)) / pop_total_2010,
-         percent_criancas_6a14_fora_escola_2010 = percent_criancas_6a14_fora_escola_2010 / 100,
-         percent_mulher_15a17_com_um_filho_2010 = percent_mulher_15a17_com_um_filho_2010 / 100,
-         percent_desocupacao_18_mais_2010 = percent_desocupacao_18_mais_2010 / 100,
-         percent_pop_extremamente_pobre_2010 = percent_pop_extremamente_pobre_2010 / 100,
-         grau_urbanizacao_2010 = pop_total_urbana_2010 / pop_total_2010) |>
-  select(UF, Codmun6, Codmun7, municipio, municipio_ipea, percent_pop_extremamente_pobre_2010, percent_desocupacao_18_mais_2010, percent_mulher_15a17_com_um_filho_2010, percent_pop_homem_15a29_2010, grau_urbanizacao_2010, percent_criancas_6a14_fora_escola_2010, gini_2010, theil_2010, idhm_2010, homicidio_2009, homicidio_2010, homicidio_2011, homicidio_2016, homicidio_2017, homicidio_2018, homicidio_2019, everything())
+##########################
 
-# Salvando
-write.xlsx(independentes_final, "C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Banco Dados Simples\\bd_final_ind_dep.xlsx")
+# Empirical bayesian smoother para contagem homicidios
+# Define observed number of cases 
+bd_final_ind_dep_count<- read.xlsx("C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Banco Dados Simples\\bd_final_ind_dep.xlsx")
+
+# To compute the expected number of cases through indirect standardisation we need the overall incidence ratio
+overall_incidence_ratio = sum(bd_final_ind_dep_count$homicidio_2010, na.rm = TRUE)/sum(bd_final_ind_dep_count$pop_total_2010, na.rm = TRUE)
+
+# The expected number of cases can then be obtained by multiplying the overall incidence rate by the population
+bd_final_ind_dep_count <- bd_final_ind_dep_count |>
+  mutate(observed_2010 = homicidio_2010,
+         expected_2010 = pop_total_2010 * overall_incidence_ratio,
+         raw_risk = observed_2010 / expected_2010,
+         homicidio_2010_100mil = (homicidio_2010 / (pop_total_2010/100000)))
+
+bd_final_ind_dep_count2 <- bd_final_ind_dep_count |>
+  mutate(observed_2010 = replace_na(observed_2010, 0),
+         expected_2010 = replace_na(expected_2010), 0)
+
+# Estimate the smooth relative risk
+res <- empbaysmooth(bd_final_ind_dep_count2$observed_2010, bd_final_ind_dep_count2$expected_2010)
+bd_final_ind_dep_count2$homicidio_rate_sm_2010 <- res$smthrr
+
+shp <- read_municipality(code_muni = "all", year = 2020) %>%
+  mutate(Codmun7 = as.numeric(code_muni),
+         municipio = as.character(name_muni)) %>%
+  dplyr::select(code_state, Codmun7, municipio, geometry = geom) |>
+  filter(code_state %in% c(35, 31,  33, 32)) 
+
+shp <- shp |>
+  left_join(bd_final_ind_dep_count2, by = "Codmun7")
+
+shp <- shp |>
+  mutate(homicidio_2010 = replace_na(homicidio_2010, 0),
+         pop_total_2010 = replace_na(pop_total_2010, 0))
+
+shp_sp <- as(shp, "Spatial")
+
+w_nb <- poly2nb(shp_sp, row.names = shp_sp$Codmun7)
+eb2 <- EBlocal(shp$homicidio_2010, shp$pop_total_2010, w_nb, zero.policy = FALSE)
+
+bd_final_ind_dep_count2 <- bd_final_ind_dep_count2 |>
+  mutate(homicidio_rate_EBSL_2010 = eb2$est * 100000)
+
+# Visualizando
+tm_shape(shp,
+         bbox =  c(-53.10986, -25.35794, -38.84784, -14.23333)) +
+  tm_fill("homicidio_2010_100mil", style = "quantile", title = "raw_count", palette = "Reds") +
+  tm_layout(legend.position = c("left", "BOTTOM"),
+            legend.title.size = 0.8,
+            legend.text.size = 0.5)
+
+tm_shape(shp,
+         bbox =  c(-53.10986, -25.35794, -38.84784, -14.23333)) +
+  tm_fill("homicidio_rate_EBSL_2010", style = "quantile", title = "raw_count", palette = "Reds") +
+  tm_layout(legend.position = c("left", "BOTTOM"),
+            legend.title.size = 0.8,
+            legend.text.size = 0.5)
+
+# Testes Modelo
+fit_1 <- lm(homicidio_rate_EBSL_2010 ~ percent_pop_extremamente_pobre_2010 + gini_2010 + theil_2010 + idhm_2010 + grau_urbanizacao_2010, shp)
+summary(fit_1)
+
+fit_2 <- lm(homicidio_2010_100mil ~ percent_pop_extremamente_pobre_2010 + gini_2010 + theil_2010 + idhm_2010 + grau_urbanizacao_2010, shp)
+summary(fit_2)
+
