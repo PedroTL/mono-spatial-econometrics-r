@@ -1,4 +1,5 @@
-pacman::p_load(tidyverse, openxlsx, geobr, tmap, spdep, janitor, spatialreg, lme4, plm, tmap, install = TRUE)
+pacman::p_load(tidyverse, openxlsx, geobr, tmap, spdep, janitor, spatialreg, lme4, plm, tmap, 
+               DCluster, install = TRUE)
 
 # Var Basicas
 # percent_pop_extremamente_pobre_2010 = Proporção dos indivíduos com renda domiciliar per capita igual ou inferior a R$ 70,00 mensais, em reais de agosto de 2010. O universo de indivíduos é limitado àqueles que vivem em domicílios particulares permanentes.

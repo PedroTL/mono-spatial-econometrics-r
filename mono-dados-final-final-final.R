@@ -3,6 +3,8 @@
 # theil_2010 = Mede a desigualdade na distribuição de indivíduos segundo a renda domiciliar per capita, excluídos aqueles com renda domiciliar per capita nula. É o logaritmo da razão entre as médias aritmética e geométrica da renda domiciliar per capita dos indivíduos, sendo nulo quando não existir desigualdade de renda entre eles e tendente ao infinito quando a desigualdade tender ao máximo.
 # idhm_2010 = Índice de Desenvolvimento Humano Municipal. Média geométrica dos índices das dimensões Renda, Educação e Longevidade, com pesos iguais.
 # grau_urbanizacao_2010 - Porcentagem da populacao residindo em areas urbana por municipio em 2010 (pop_total_urbana_2010/pop_total_2010)
+# idhm_renda_2010 - Índice da dimensão Renda que é um dos 3 componentes do IDHM. É obtido a partir do indicador Renda per capita, através da fórmula: [ln (valor observado do indicador) - ln (valor mínimo)] / [ln (valor máximo) - ln (valor mínimo)], onde os valores mínimo e máximo são R$ 8,00 e R$ 4.033,00 (a preços de agosto de 2010). 
+# percent_pop_pobre - Proporção dos indivíduos com renda domiciliar per capita igual ou inferior a R$ 140,00 mensais, em reais de agosto de 2010. O universo de indivíduos é limitado àqueles que vivem em domicílios particulares permanentes. 
 
 # Var adicionais
 # percent_criancas_6a14_fora_escola = Razão entre as crianças de 6 a 14 anos que não frequenta a escola e o total de crianças nesta faixa etária multiplicado por 100.
@@ -20,7 +22,22 @@
 # Variáveis Independentes
 independentes_simples <- read.xlsx("C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Banco Dados Simples\\Atlas 2013_municipal, estadual e Brasil.xlsx", sheet = 2) |>
   filter(UF %in% c(35, 31,  33, 32) & ANO == 2010) |>
-  select(UF, Codmun6, Codmun7, municipio = Município, percent_pop_extremamente_pobre_2010 = PIND, idhm_2010 = IDHM, gini_2010 = GINI, theil_2010 = THEIL, percent_mulher_15a17_com_um_filho_2010 = T_M15A17CF, percent_criancas_6a14_fora_escola_2010 = T_FORA6A14, percent_desocupacao_18_mais_2010 = T_DES18M, pop_total_2010 = pesotot, pop_total_urbana_2010 = pesourb, homem_15a19_2010 = HOMEM15A19, homem_20a24_2010 = HOMEM20A24, homem_25a29_2010 = HOMEM25A29) 
+  dplyr::select(UF, Codmun6, Codmun7, municipio = Município, 
+         percent_pop_extremamente_pobre_2010 = PIND,
+         idhm_2010 = IDHM,
+         gini_2010 = GINI, 
+         theil_2010 = THEIL, 
+         percent_mulher_15a17_com_um_filho_2010 = T_M15A17CF, 
+         percent_criancas_6a14_fora_escola_2010 = T_FORA6A14, 
+         percent_desocupacao_18_mais_2010 = T_DES18M, 
+         pop_total_2010 = pesotot, 
+         pop_total_urbana_2010 = pesourb, 
+         homem_15a19_2010 = HOMEM15A19, 
+         homem_20a24_2010 = HOMEM20A24, 
+         homem_25a29_2010 = HOMEM25A29, 
+         idhm_renda_2010 = IDHM_R, 
+         percent_pop_pobre_2010 = PMPOB
+         ) 
 
 # Variavel Dependente homicidio 100 mil hab
 homicide <- read.csv2("C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Mono - Bancos de Dados\\Banco de Dados Atualizado\\homicidios2010.csv") |>
@@ -31,7 +48,7 @@ homicide2 <- homicide |>
   group_by(ano) |>
   mutate(row = row_number()) |>
   tidyr::pivot_wider(names_from = ano, values_from = homicidio) |>
-  select(-row, municipio, homicidio_2009 = `2009`, homicidio_2010 = `2010`, homicidio_2011 = `2011`, homicidio_2016 = `2016`, homicidio_2017 = `2017`, homicidio_2018 = `2018`, homicidio_2019 = `2019`)
+  dplyr::select(-row, municipio, homicidio_2009 = `2009`, homicidio_2010 = `2010`, homicidio_2011 = `2011`, homicidio_2016 = `2016`, homicidio_2017 = `2017`, homicidio_2018 = `2018`, homicidio_2019 = `2019`)
 
 re_organize <- function(df, municipio_col, code_muni_col, homicide_col) {
   require(dplyr)
@@ -41,7 +58,7 @@ re_organize <- function(df, municipio_col, code_muni_col, homicide_col) {
   homicide_col <- sym(homicide_col)
   
   df <- df %>%
-    select(!!municipio_col, !!code_muni_col, !!homicide_col) %>%
+    dplyr::select(!!municipio_col, !!code_muni_col, !!homicide_col) %>%
     distinct(!!municipio_col, !!code_muni_col, !!homicide_col) %>%
     drop_na()
   
@@ -63,8 +80,33 @@ homicide_final <- homicide_final |>
 rm(homicidio2009, homicidio2010, homicidio2011, homicidio2016, homicidio2017, homicidio2018, homicidio2019)
 rm(homicide, homicide2)
 
+independentes_final <- independentes_simples |>
+  left_join(homicide_final, by = "Codmun7")
+
+independentes_final <- independentes_final |>
+  rename(municipio = municipio.x, municipio_ipea = municipio.y)
+
+independentes_final <- independentes_final |>
+  mutate(percent_pop_extremamente_pobre_2010 = percent_pop_extremamente_pobre_2010 / 100,
+         percent_mulher_15a17_com_um_filho_2010 = percent_mulher_15a17_com_um_filho_2010 / 100,
+         percent_criancas_6a14_fora_escola_2010 = percent_criancas_6a14_fora_escola_2010 / 100,
+         percent_desocupacao_18_mais_2010 = percent_desocupacao_18_mais_2010 / 100,
+         percent_pop_pobre_2010 = percent_pop_pobre_2010 / 100,
+         grau_urbanizacao_2010 = pop_total_urbana_2010 / pop_total_2010,
+         percent_pop_homem_15a29_2010 = rowSums(across(starts_with("homem")), na.rm = TRUE) / pop_total_2010,
+         pop_total_dividido_mil_2010 = pop_total_2010 / 1000,
+         homicidio_100mil_2010 = (homicidio_2010 / (pop_total_2010/100000)),
+         gini_scaled_2010 = scale(gini_2010),
+         theil_scaled_2010 = scale(theil_2010),
+         idhm_scaled_2010 = scale(idhm_2010),
+         idhm_renda_scaled_2010 = scale(idhm_renda_2010),
+         log_percent_pop_extremamente_pobre_2010 = log(percent_pop_extremamente_pobre_2010),
+         log_percent_pop_pobre_2010 = log(percent_pop_pobre_2010),
+         log_percent_pop_extremamente_pobre_2010 = ifelse(is.infinite(log_percent_pop_extremamente_pobre_2010), NA, log_percent_pop_extremamente_pobre_2010),
+         log_percent_pop_pobre_2010 = ifelse(is.infinite(log_percent_pop_pobre_2010), NA, log_percent_pop_pobre_2010))
+
 # Salvando homicidio (contagem) e var independentes
-write.xlsx(independentes_final, "C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Banco Dados Simples\\bd_final_ind_dep_count.xlsx")
+write.xlsx(independentes_final, "C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Banco Dados Simples\\bd_final_ind_dep_count_2.xlsx")
 
 ##########################
 
