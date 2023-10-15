@@ -175,3 +175,34 @@ summary(fit_1)
 fit_2 <- lm(homicidio_2010_100mil ~ percent_pop_extremamente_pobre_2010 + gini_2010 + theil_2010 + idhm_2010 + grau_urbanizacao_2010, shp)
 summary(fit_2)
 
+#######################
+# A687 - Existe no munícipio: Delegacia de Homícidio (Sim ou Não)
+# A708 - Efetivo total de PM
+
+pm <- read_ods("C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Banco Dados Simples\\munic_2014_pm.ods", sheet = 8) |>
+  dplyr::select(Codmun7 = A1, deleg_pm_mun_binaria_2014 = A687, efetivo_total_pm_2014 = A708) |>
+  mutate(deleg_pm_mun_binaria_2014 = as.factor(ifelse(deleg_pm_mun_binaria_2014 == "Sim", 1, 0)),
+         efetivo_total_pm_2014 = ifelse(efetivo_total_pm_2014 == "-", NA, efetivo_total_pm_2014))
+
+metropolitana <- read.xlsx("C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Banco Dados Simples\\regioesmetropolitanas.xlsx") |>
+  filter(COD_UF %in% c(35, 31,  33, 32)) |>
+  dplyr::select(Codmun7 = COD_MUN, regiao_metrop = LABEL_CATMETROPOL) |>
+  mutate(metrop_binaria = 1,
+         Codmun7 = as.numeric(Codmun7)) |>
+  distinct(Codmun7, .keep_all = T)
+
+pop_2014 <- read.xlsx("C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Banco Dados Simples\\pop_total_2014.xlsx") |>
+  dplyr::select(Codmun7, pop_total_2014) |>
+  mutate(Codmun7 = as.numeric(Codmun7))
+
+bd_final_ind_dep_count2 <-bd_final_ind_dep_count2 |>
+  left_join(pop_2014)
+
+bd_final_ind_dep_count2 <-bd_final_ind_dep_count2 |>
+  left_join(metropolitana)
+
+bd_final_ind_dep_count2 <-bd_final_ind_dep_count2 |>
+  mutate(metrop_binaria = ifelse(is.na(metrop_binaria), 0, metrop_binaria),
+         pop_total_dividido_mil_2014 = pop_total_2014 / 1000,
+         pop_pm_por_100_mil_habit = (efetivo_total_pm_2014 / (pop_total_2014/100000)),
+         pop_pm_por_1000_habit = (efetivo_total_pm_2014 / pop_total_2014) * 1000)
