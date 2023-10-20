@@ -160,7 +160,7 @@ tm_shape(shp_sp_subset_f) +
   tm_layout(main.title = "Residuals", main.title.size = 0.7 ,
             legend.position = c("left", "bottom"), legend.hist.size = 0.3, legend.title.size = 0.8)
 
-#style = "quantile"
+# style = "quantile"
 
 # Notice the spatial patterning of areas of over-prediction (negative residuals, or blue tones) and under-prediction (positive residuals, or brown tones). This visual inspection of the residuals is telling you that spatial autocorrelation may be present here
 # Do the residuals look randomly distributed there? Not really. High residuals are often near other high residuals, and low residuals are near other low residuals. That’s bad. It means our errors are correlated and our observations aren’t independent.

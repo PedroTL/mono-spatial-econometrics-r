@@ -153,6 +153,9 @@ eb2 <- EBlocal(shp$homicidio_2010, shp$pop_total_2010, w_nb, zero.policy = FALSE
 bd_final_ind_dep_count2 <- bd_final_ind_dep_count2 |>
   mutate(homicidio_rate_EBSL_2010 = eb2$est * 100000)
 
+shp <- shp |>
+  left_join(bd_final_ind_dep_count2)
+
 # Visualizando
 tm_shape(shp,
          bbox =  c(-53.10986, -25.35794, -38.84784, -14.23333)) +
@@ -178,11 +181,13 @@ summary(fit_2)
 #######################
 # A687 - Existe no munícipio: Delegacia de Homícidio (Sim ou Não)
 # A708 - Efetivo total de PM
+bd_final_ind_dep_count2 <- read.xlsx("C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Banco Dados Simples\\bd_final_ind_dep_count_2.xlsx")
 
-pm <- read_ods("C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Banco Dados Simples\\munic_2014_pm.ods", sheet = 8) |>
+pm <- readODS::read_ods("C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Banco Dados Simples\\munic_2014_pm.ods", sheet = 8) |>
   dplyr::select(Codmun7 = A1, deleg_pm_mun_binaria_2014 = A687, efetivo_total_pm_2014 = A708) |>
   mutate(deleg_pm_mun_binaria_2014 = as.factor(ifelse(deleg_pm_mun_binaria_2014 == "Sim", 1, 0)),
-         efetivo_total_pm_2014 = ifelse(efetivo_total_pm_2014 == "-", NA, efetivo_total_pm_2014))
+         efetivo_total_pm_2014 = ifelse(efetivo_total_pm_2014 == "-", NA, efetivo_total_pm_2014)) |>
+  dplyr::select(Codmun7, deleg_pm_mun_binaria_2014)
 
 metropolitana <- read.xlsx("C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Banco Dados Simples\\regioesmetropolitanas.xlsx") |>
   filter(COD_UF %in% c(35, 31,  33, 32)) |>
@@ -202,7 +207,26 @@ bd_final_ind_dep_count2 <-bd_final_ind_dep_count2 |>
   left_join(metropolitana)
 
 bd_final_ind_dep_count2 <-bd_final_ind_dep_count2 |>
+  left_join(pm)
+
+bd_final_ind_dep_count2 <-bd_final_ind_dep_count2 |>
   mutate(metrop_binaria = ifelse(is.na(metrop_binaria), 0, metrop_binaria),
-         pop_total_dividido_mil_2014 = pop_total_2014 / 1000,
-         pop_pm_por_100_mil_habit = (efetivo_total_pm_2014 / (pop_total_2014/100000)),
-         pop_pm_por_1000_habit = (efetivo_total_pm_2014 / pop_total_2014) * 1000)
+         pop_total_dividido_mil_2014 = pop_total_2014 / 1000)
+
+write.xlsx(bd_final_ind_dep_count2, "C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Banco Dados Simples\\bd_final_ind_dep_count_2_final.xlsx")
+
+
+######
+bd_final_ind_dep_count2 <- read.xlsx("C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Banco Dados Simples\\bd_final_ind_dep_count_2_final.xlsx")
+
+desemprego <- read.xlsx("C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Mono - Bancos de Dados\\Banco de Dados Antigo\\unemployment2010.xlsx") |>
+  dplyr::select(Codmun6 = Município, percent_desemprego_2010 = `Taxa_de_desemprego_16a_e+`) |>
+  mutate(Codmun6 = gsub("\\D+", "", Codmun6),
+         Codmun6 = as.numeric(Codmun6),
+         percent_desemprego_2010 = as.numeric(percent_desemprego_2010),
+         percent_desemprego_2010 = percent_desemprego_2010 / 100)
+
+bd_final_ind_dep_count2 <- bd_final_ind_dep_count2 |>
+  left_join(desemprego, by = "Codmun6")
+
+write.xlsx(bd_final_ind_dep_count2, "C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Banco Dados Simples\\bd_final_ind_dep_count_2_final.xlsx")
