@@ -58,7 +58,7 @@ bakcwards <- bd_final_ind_dep_count2 |>
 #### 2. Verificando variáveis com melhor ajuste - stepwise ####
 
 ##### 2.1 Modelo apenas com intercepto (Utilizando variável taxa homicidio suavizada) #####
-intercept_only <- lm(homicidio_rate_EBSL_2010 ~ 1, data = bakcwards)
+intercept_only <- lm(log_homicidio_rate_EBSL_2010 ~ 1, data = bakcwards)
 
 ##### 2.2 Adicionando as possíveis variáveis independentes #####
 independent <- c("gini_scaled_2010",
@@ -86,11 +86,11 @@ independent <- c("gini_scaled_2010",
 
 ##### 2.3 Criando novo banco de dados apenas com variáveis selecionadas e removendo NAs #####
 bakcward <- bakcwards |>
-  dplyr::select(homicidio_rate_EBSL_2010, independent) |>
+  dplyr::select(log_homicidio_rate_EBSL_2010, independent) |>
   drop_na()
 
 ##### 2.4 Definindo modelo com todas as variáveis independentes #####
-model <- lm(homicidio_rate_EBSL_2010 ~ ., data = bakcward)
+model <- lm(log_homicidio_rate_EBSL_2010 ~ ., data = bakcward)
 
 ##### 2.5 Performando modelo de regressão stepwise #####
 backward_m <- stats::step(model, direction = 'backward', scope = formula(model), trace = 0)
@@ -116,6 +116,25 @@ backwards_model <- lm(homicidio_rate_EBSL_2010 ~
 
 summary(backwards_model)
 
+##### 2.8 Rodando Modelo 8 homicidio_rate_EBSL_2010 em LOG #####
+backwards_model_2 <- lm(log_homicidio_rate_EBSL_2010 ~ 
+                        percent_pop_homem_15a29_2010 +
+                        percent_mulher_15a17_com_um_filho_2010 +
+                        log_percent_pop_extremamente_pobre_2010 +
+                        #theil_scaled_2010 +
+                        gini_scaled_2010 +
+                        percent_desocupacao_18_mais_2010 +
+                        #idhm_2010 +
+                        #log_percent_pop_pobre_2010 +
+                        grau_urbanizacao_2010 +
+                        percent_criancas_6a14_fora_escola_2010 +
+                        #idhm_renda_2010 +
+                        as.factor(metrop_binaria),
+                      bakcwards)
+
+summary(backwards_model_2)
+
+
 #### 3. Correlação das variáveis independentes modelo 1 ####
 var <- c("pop_total_dividido_mil_2010",
          "percent_mulher_15a17_com_um_filho_2010",
@@ -133,7 +152,7 @@ var <- c("pop_total_dividido_mil_2010",
 corr <- stats::cor(bakcwards[, var], use = 'pairwise.complete.obs')
 corr
 
-car::vif(backwards_model)
+car::vif(backwards_model_2)
 
 ##### 3.1 Salvando Banco de dados backwards_model #####
 bakcwards_df <- read.xlsx("C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Banco Dados Simples\\backwards_model.xlsx") |>
