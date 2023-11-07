@@ -149,8 +149,8 @@ var <- c("pop_total_dividido_mil_2010",
          #"idhm_renda_2010",
          "metrop_binaria") 
 
-corr <- stats::cor(bakcwards[, var], use = 'pairwise.complete.obs')
-corr
+corr <- metan::corr_coef(bakcwards[, var], use = 'pairwise.complete.obs')
+plot(corr)
 
 car::vif(backwards_model_2)
 
