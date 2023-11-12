@@ -157,9 +157,17 @@ car::vif(backwards_model_2)
 ##### 3.1 Salvando Banco de dados backwards_model #####
 bakcwards_df <- read.xlsx("C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Banco Dados Simples\\backwards_model.xlsx") |>
   mutate_at(vars(contains("scaled")), as.numeric) |>
-  mutate(metrop_binaria = as.factor(metrop_binaria)) |>
+  mutate(metrop_binaria = as.factor(metrop_binaria),
+         log_homicidio_rate_EBSL_2010 = log(homicidio_rate_EBSL_2010),
+         log_homicidio_rate_EBSL_2010 = ifelse(is.infinite(log_homicidio_rate_EBSL_2010), NA, log_homicidio_rate_EBSL_2010)) |>
   drop_na()
 
+bakcwards <- bakcwards |>
+  dplyr::select(Codmun7, homicidio_100mil_2010)
+
+bakcwards_df <- bakcwards_df |>
+  left_join(bakcwards)
+  
 #### 4. Visualizando variável suavizada ####
 ##### 4.1 Abrindo ShapeFile Sudeste #####
 shp <- read_municipality(code_muni = "all", year = 2020) %>%
@@ -198,34 +206,73 @@ nb_sp_pesos <- listw2lines(nb_pesos, coords = coords_xy, proj4string = crs(shp_b
 plot(nb_sp_pesos)
 
 ##### 4.3 Visualizando Taxa de Homicídio suavizada EBSL ####
+map1 <-
 tm_shape(shp_bakcwards_df,
          bbox =  c(-53.10986, -25.35794, -38.84784, -14.23333)) +
-  tm_fill("homicidio_rate_EBSL_2010", style = "quantile", title = "Taxa de Homícidio\nEBSL 2010", palette = "Reds") +
-  tm_layout(legend.position = c("left", "BOTTOM"),
+  tm_fill("homicidio_rate_EBSL_2010", style = "quantile", title = "Taxa de Homícidio\nSuavizada 2010", palette = "Reds") +
+  tm_layout(legend.position = c("LEFT", "TOP"),
             legend.title.size = 0.8,
-            legend.text.size = 0.5) 
+            legend.text.size = 0.5) +
+  tm_shape(state) +
+  tm_borders(col = "black",
+             lwd = 1.5) +
+  tm_layout(frame = F)
+
+map2 <-
+tm_shape(shp_bakcwards_df,
+         bbox =  c(-53.10986, -25.35794, -38.84784, -14.23333)) +
+  tm_fill("homicidio_100mil_2010", style = "quantile", title = "Taxa de Homícidio\n100 mil habitantes\n2010", palette = "Reds") +
+  tm_layout(legend.position = c("LEFT", "TOP"),
+            legend.title.size = 0.8,
+            legend.text.size = 0.5) +
+  tm_shape(state) +
+  tm_borders(col = "black",
+             lwd = 1.5) +
+  tm_layout(frame = F)
+
+arrange <- tmap_arrange(map1, map2)
+
+tmap_save(map1, filename = "C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Referencia\\homicidio_suavizada.png", height = 5, width = 6, dpi=300)
+tmap_save(map2, filename = "C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Referencia\\homicidio_n_suavizada.png", height = 5, width = 6, dpi=300)
 
 #### 4. Resíduos e previstos do Modelo ####
 ##### 4.1 Modelo #####
-backwards_model <- lm(homicidio_rate_EBSL_2010 ~ 
-                        pop_total_dividido_mil_2010 +
-                        percent_mulher_15a17_com_um_filho_2010 +
-                        log_percent_pop_extremamente_pobre_2010 +
-                        theil_scaled_2010 +
-                        percent_desocupacao_18_mais_2010 +
-                        #idhm_2010 +
-                        log_percent_pop_pobre_2010 +
-                        grau_urbanizacao_2010 +
-                        metrop_binaria +
-                        percent_criancas_6a14_fora_escola_2010,
-                        #idhm_renda_2010
+backwards_model <- lm(log_homicidio_rate_EBSL_2010 ~ 
+                         percent_pop_homem_15a29_2010 +
+                         percent_mulher_15a17_com_um_filho_2010 +
+                         log_percent_pop_extremamente_pobre_2010 +
+                         #theil_scaled_2010 +
+                         gini_scaled_2010 +
+                         percent_desocupacao_18_mais_2010 +
+                         #idhm_2010 +
+                         #log_percent_pop_pobre_2010 +
+                         grau_urbanizacao_2010 +
+                         percent_criancas_6a14_fora_escola_2010 +
+                         #idhm_renda_2010 +
+                         metrop_binaria,
                       shp_bakcwards_df_sp@data)
 
 summary(backwards_model)
 
-shp_bakcwards_df <- st_as_sf(shp_bakcwards_df_sp)
+#### Modelo LM Mono Papel ####
+mod_lm_paper <- backwards_model |>
+  gtsummary::tbl_regression(intercept = TRUE) |>
+  gtsummary::add_vif() |>
+  gtsummary::add_significance_stars(hide_p = FALSE, thresholds = c(0.01, 0.05, 0.10)) |>
+  gtsummary::modify_column_hide(columns = std.error) |>
+  gtsummary::add_glance_table(include = c(r.squared, adj.r.squared, AIC, p.value))
+
+mod_lm_paper
+
+b <- stargazer::stargazer(backwards_model,
+                          dep.var.labels = c("", "", "", ""), model.names = F, type = "latex", 
+                          out = "C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Referencia\\tabl21.txt")
+
+vif_table <- data.frame(car::vif(backwards_model))
+logLik(backwards_model)
 
 ##### 4.1 Resíduos #####
+shp_bakcwards_df <- st_as_sf(shp_bakcwards_df_sp)
 shp_bakcwards_df$res_backwards_model <- residuals(backwards_model)
 
 ##### 4.2 Previstos #####
@@ -235,22 +282,27 @@ shp_bakcwards_df$fitted_backwards_model <- fitted(backwards_model)
 shp_bakcwards_df$sd_breaks <- scale(shp_bakcwards_df$res_backwards_model)[,1] # Because scale is made for matrices, we just need to get the first column using [,1]
 summary(shp_bakcwards_df$sd_breaks)
 
-my_breaks <- c(-Inf, -2.2898, -0.5965, -0.1978, 0.3694, 7.9445, Inf)
+my_breaks <- c(-5, -3, -2, -1, 1, 2, 3, 5)
 
 tm_shape(shp_bakcwards_df,
          bbox =  c(-53.10986, -25.35794, -38.84784, -14.23333)) + 
-  tm_fill("sd_breaks", title = "Residuals", style = "quantile", palette = "-RdBu", midpoint = 0) +
+  tm_fill("sd_breaks", title = "Residuals", 
+          style = "fixed",
+          breaks = my_breaks,
+          palette = "-RdBu", 
+          midpoint = 0) +
   tm_borders(alpha = 0.1) +
   tm_layout(main.title = "Residuals", main.title.size = 0.7 ,
             legend.position = c("left", "bottom"), legend.hist.size = 0.3, legend.title.size = 0.8)
 
 #### 5. Teste de Moran Autocorrelação espacial ####
 ##### 5.1 Teste Moran #####
-lm.morantest(backwards_model, listw = nb_pesos, alternative="two.sided") # P < 0.05 e ObservedMoran I 0.6 (Vizinhos apresentam correlação positiva moderada)
+moran <- lm.morantest(backwards_model, listw = nb_pesos, alternative="two.sided") # P < 0.05 e ObservedMoran I 0.6 (Vizinhos apresentam correlação positiva moderada)
+moran
 
 ##### 5.2 Correlograma de Moran #####
 correlograma_contiguidade <- sp.correlogram(neighbours = nb, var = shp_bakcwards_df$homicidio_rate_EBSL_2010, order = 5, method = "I")
-plot(correlograma_contiguidade)
+plot(correlograma_contiguidade, main = NULL)
 
 #### 6. Indicadors Locais de Associacao Espacil Lisa MAP ####
 localmoran <- localmoran(x = shp_bakcwards_df$homicidio_rate_EBSL_2010, listw = nb_pesos)
@@ -269,7 +321,7 @@ tm_shape(shp_bakcwards_df) +
           pallette = c("red", "lightblue", "blue", "blue4"))
 
 ###### 6.1.2 Diagrama de dispersão de Moran I ######
-moran.plot(x = shp_bakcwards_df$homicidio_rate_EBSL_2010, listw = nb_pesos, cex = 0.6, labels = FALSE)
+moran.plot(x = shp_bakcwards_df$homicidio_rate_EBSL_2010, listw = nb_pesos, cex = 0.6, labels = FALSE, xlab = "Tx. Homicídio Suavizada", ylab = "Spatially Lagged Tx. Homicídio Suavizada")
 
 ###### 6.1.3 Cada fator H acima da media L abaixo da media no poligono ###### 
 L1 <- factor(shp_bakcwards_df$homicidio_rate_EBSL_2010 < mean(shp_bakcwards_df$homicidio_rate_EBSL_2010), labels = c("H", "L"))
@@ -281,40 +333,64 @@ L2 <- factor(shp_bakcwards_df$lag_homicidio_rate_EBSL_2010 < mean(shp_bakcwards_
 shp_bakcwards_df$lisa <- paste(L1, L2)
 
 ###### 6.1.5 Mapear apenas aqueles com moran_p < 0.05 ###### 
-lisa_map <- shp_bakcwards_df |>
-  mutate(lisa = ifelse(moran_p > 0.05, "Não Significativo", lisa))
+state_31 <- read_state(code_state = 31)
+state_32 <- read_state(code_state = 32)
+state_33 <- read_state(code_state = 33)
+state_35 <- read_state(code_state = 35)
 
-tm_shape(lisa_map,
+lisa_map <- shp_bakcwards_df |>
+  mutate(LISA = ifelse(moran_p > 0.1, "Não Significativo", lisa))
+
+lisa <- 
+  tm_shape(lisa_map,
          bbox =  c(-53.10986, -25.35794, -38.84784, -14.23333)) + 
-  tm_fill("lisa", palette = c("red", "blue4", "lightblue", "blue", "white")) +
-  tm_borders("black")
+  tm_fill("LISA", palette = c("red", "blue4", "lightblue", "blue", "white")) +
+  tm_borders("grey") +
+  tm_shape(state) +
+  tm_borders(col = "black",
+             lwd = 1.5) +
+  tm_layout(frame = F)
+
+state <- rbind(state_31, state_32, state_33, state_35)
+
+tmap_save(lisa, filename = "C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Referencia\\lisa.png", height = 5, width = 6, dpi=300)
 
 #### 7. Teste Multiplicador de Lagrange ####
 lm.LMtests(backwards_model, nb_pesos, test = c("LMerr","LMlag","RLMerr","RLMlag","SARMA"))
 
 ##### 7.1 Fitting RLMlag #####
-lag_backwards_model <- lagsarlm(homicidio_rate_EBSL_2010 ~ 
-                        pop_total_dividido_mil_2010 +
-                        percent_mulher_15a17_com_um_filho_2010 +
-                        log_percent_pop_extremamente_pobre_2010 +
-                        theil_scaled_2010 +
-                        percent_desocupacao_18_mais_2010 +
-                        #idhm_2010 +
-                        log_percent_pop_pobre_2010 +
-                        grau_urbanizacao_2010 +
-                        percent_criancas_6a14_fora_escola_2010 +
-                        #idhm_renda_2010 + 
-                        metrop_binaria,
+lag_backwards_model <- lagsarlm(log_homicidio_rate_EBSL_2010 ~ 
+                                  percent_pop_homem_15a29_2010 +
+                                  percent_mulher_15a17_com_um_filho_2010 +
+                                  log_percent_pop_extremamente_pobre_2010 +
+                                  #theil_scaled_2010 +
+                                  gini_scaled_2010 +
+                                  percent_desocupacao_18_mais_2010 +
+                                  #idhm_2010 +
+                                  #log_percent_pop_pobre_2010 +
+                                  grau_urbanizacao_2010 +
+                                  percent_criancas_6a14_fora_escola_2010 +
+                                  #idhm_renda_2010 +
+                                  metrop_binaria,
                      data = shp_bakcwards_df_sp@data,
                      listw = nb_pesos)
 
-summary(lag_backwards_model)
+summary(lag_backwards_model, Nagelkerke = T)
+
+mod_lag_paper <- lag_backwards_model 
+
+###
+
+a <- stargazer::stargazer(backwards_model, mod_lag_paper,
+          dep.var.labels = c("", "", "", ""), model.names = F, type = "latex", 
+          out = "C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Referencia\\table1.txt")
 
 # The impacts() function gives us something like OLS regression coefficients for a spatial lag model. 
 # The logic of the impacts() function is similar to the code above, it tells you the direct (local), 
 # indirect (spill-over), and total effect of a unit change in each of the predictor variables. 
 # The changes reported by impacts are the global average impact:
-impacts(lag_backwards_model, listw = nb_pesos)
+impacto <- summary(impacts(lag_backwards_model, listw = nb_pesos, R = 100), zstat = TRUE)
+impacto
 
 ######################## Acabou Mono ############################################
 

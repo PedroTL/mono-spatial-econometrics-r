@@ -1,3 +1,8 @@
+SOLYMOSI, Reka et al. Crime Mapping in R. Manchester: Bookdown, 2022. Disponível em: https://maczokni.github.io/crime_mapping_textbook/#. Acesso em: 03 ago. 2023.
+
+Solymosi et al. (2022)
+(SOLYMOSI et al., 2022)
+
 Ye, X., & Wu, L. (2011, April 1). Analyzing the dynamics of homicide patterns in Chicago: ESDA and spatial panel approaches. Applied Geography; Elsevier BV. https://doi.org/10.1016/j.apgeog.2010.08.006
 In-Text Citation: (Ye & Wu, 2011)
 
