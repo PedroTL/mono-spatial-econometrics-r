@@ -1,3 +1,26 @@
+INGRAM, Matthew C.; COSTA, Marcelo Marchesini da. A Spatial Analysis of Homicide Across Brazil’s Municipalities. Homicide Studies, [S.L.], v. 21, n. 2, p. 87-110, 7 set. 2016. SAGE Publications. http://dx.doi.org/10.1177/1088767916666603.
+
+Ingram e Costa (2016)
+
+(INGRAM; COSTA, 2016)
+
+SILVA, Carlos et al. Spatial Modeling for Homicide Rates Estimation in Pernambuco State-Brazil. International Journal Of Geo-Information. Switzerland, p. 1-19. dez. 2020.
+
+Silva et al. (2020)
+
+(SILVA et al., 2020)
+
+PRATES, Thierry Molnar et al. HOMICIDES IN ALAGOAS – BRAZIL: A SPATIAL ANALYSIS. Estudios Económicos, Bahía Blanca, v. , n. 80, p. 11-41, jan. 2023. Disponível em: https://www.redalyc.org/journal/5723/572373856001/html/. Acesso em: 14 set. 2023.
+
+Prates et al. (2023)
+
+(PRATES et al., 2023)
+
+Ward, M. D., & Gleditsch, K. S. (2008). Spatial Regression Models. SAGE Publications.
+
+Ward e Gleditsch. (2008)
+(WARD; GLEDITSCH, 2008)
+
 SOLYMOSI, Reka et al. Crime Mapping in R. Manchester: Bookdown, 2022. Disponível em: https://maczokni.github.io/crime_mapping_textbook/#. Acesso em: 03 ago. 2023.
 
 Solymosi et al. (2022)

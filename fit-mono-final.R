@@ -284,16 +284,28 @@ summary(shp_bakcwards_df$sd_breaks)
 
 my_breaks <- c(-5, -3, -2, -1, 1, 2, 3, 5)
 
+state_31 <- read_state(code_state = 31)
+state_32 <- read_state(code_state = 32)
+state_33 <- read_state(code_state = 33)
+state_35 <- read_state(code_state = 35)
+state <- rbind(state_31, state_32, state_33, state_35)
+
+map0 <- 
 tm_shape(shp_bakcwards_df,
          bbox =  c(-53.10986, -25.35794, -38.84784, -14.23333)) + 
-  tm_fill("sd_breaks", title = "Residuals", 
+  tm_fill("sd_breaks", title = "Resíduos", 
           style = "fixed",
           breaks = my_breaks,
           palette = "-RdBu", 
           midpoint = 0) +
   tm_borders(alpha = 0.1) +
-  tm_layout(main.title = "Residuals", main.title.size = 0.7 ,
-            legend.position = c("left", "bottom"), legend.hist.size = 0.3, legend.title.size = 0.8)
+  tm_layout(frame = F,
+            legend.position = c("LEFT", "TOP"), legend.hist.size = 0.3, legend.title.size = 0.8) +
+  tm_shape(state) +
+  tm_borders(col = "black",
+             lwd = 1.5)
+
+tmap_save(map0, filename = "C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Referencia\\residuos.png", height = 5, width = 6, dpi=300)
 
 #### 5. Teste de Moran Autocorrelação espacial ####
 ##### 5.1 Teste Moran #####
@@ -333,11 +345,6 @@ L2 <- factor(shp_bakcwards_df$lag_homicidio_rate_EBSL_2010 < mean(shp_bakcwards_
 shp_bakcwards_df$lisa <- paste(L1, L2)
 
 ###### 6.1.5 Mapear apenas aqueles com moran_p < 0.05 ###### 
-state_31 <- read_state(code_state = 31)
-state_32 <- read_state(code_state = 32)
-state_33 <- read_state(code_state = 33)
-state_35 <- read_state(code_state = 35)
-
 lisa_map <- shp_bakcwards_df |>
   mutate(LISA = ifelse(moran_p > 0.1, "Não Significativo", lisa))
 
@@ -351,8 +358,7 @@ lisa <-
              lwd = 1.5) +
   tm_layout(frame = F)
 
-state <- rbind(state_31, state_32, state_33, state_35)
-
+lisa
 tmap_save(lisa, filename = "C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Referencia\\lisa.png", height = 5, width = 6, dpi=300)
 
 #### 7. Teste Multiplicador de Lagrange ####
@@ -391,6 +397,13 @@ a <- stargazer::stargazer(backwards_model, mod_lag_paper,
 # The changes reported by impacts are the global average impact:
 impacto <- summary(impacts(lag_backwards_model, listw = nb_pesos, R = 100), zstat = TRUE)
 impacto
+
+W <- as(nb_pesos, "CsparseMatrix")
+trMC <- trW(W, type = "MC")
+im <- impacts(lag_backwards_model, tr = trMC, R = 100)
+sums <- summary(im, zstats = T)
+data.frame(sums$res)
+data.frame(sums$pzmat)
 
 ######################## Acabou Mono ############################################
 
