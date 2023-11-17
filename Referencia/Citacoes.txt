@@ -1,3 +1,9 @@
+ANSELIN, Luc. Exploring Spatial Data with GeoDaTM : A Workbook. Illinois: Center For Spatially Integrated Social Science, 2005. 224 p. Disponível em: https://edisciplinas.usp.br/pluginfile.php/4130006/mod_folder/content/0/geodaworkbook.pdf. Acesso em: 03 jun. 2023.
+
+Anselin (2005)
+
+(ANSELIN, 2005)
+
 INGRAM, Matthew C.; COSTA, Marcelo Marchesini da. A Spatial Analysis of Homicide Across Brazil’s Municipalities. Homicide Studies, [S.L.], v. 21, n. 2, p. 87-110, 7 set. 2016. SAGE Publications. http://dx.doi.org/10.1177/1088767916666603.
 
 Ingram e Costa (2016)
@@ -38,7 +44,6 @@ Citação no texto:
 ou ... FRANCISCO; FAJNZYLBER, (2001)
 
 ou ... (FRANCISCO; FAJNZYLBER, 2001)
-
 
 
 MAJID MADDAH. AN EMPIRICAL ANALYSIS OF THE RELATIONSHIP BETWEEN UNEMPLOYMENT AND THEFT CRIMES. 1 jan. 2013.
