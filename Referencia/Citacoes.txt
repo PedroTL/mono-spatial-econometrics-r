@@ -1,19 +1,3 @@
-SILVA, Michele Lins Aracaty e; RIKER, Daniel Garcia Jaña (org.). ECONOMIA DO CRIME: UMA PERSPECTIVA ECONÔMICA DA TEORIA DE GARY BECKER COM FOCO NO CRIMINOSO RACIONAL. In: COSTA, Alvaro Daniel (org.). Cultura, Cidadania e Politícas Públicas. 4. ed. [S. I]: Atena, 2019. p. 1-278.
-
-Silva e Riker (2019)
-
-(SILVA; RIKER, 2019)
-
-DARMOFAL, David. Spatial Analysis for the Social Sciences. [S. L.]: Cambridge University Press, 2015. 244 p.
-
- Darmofal (2015)
-(DARMOFAL, 2015)
-
-LOCHNER, Lance; MORETTI, Enrico. The effect of education on crime: evidence from prison inmates, arrests, and self-reports. The American Economic Review, Nashville, v. 94, n. 1, 2004, p. 155-189.
-
-Lochner (2004)
-(LOCHNER, 2004)
-
 ANSELIN, Luc. Exploring Spatial Data with GeoDaTM : A Workbook. Illinois: Center For Spatially Integrated Social Science, 2005. 224 p. Disponível em: https://edisciplinas.usp.br/pluginfile.php/4130006/mod_folder/content/0/geodaworkbook.pdf. Acesso em: 03 jun. 2023.
 
 Anselin (2005)
@@ -43,11 +27,10 @@ Ward, M. D., & Gleditsch, K. S. (2008). Spatial Regression Models. SAGE Publicat
 Ward e Gleditsch. (2008)
 (WARD; GLEDITSCH, 2008)
 
-MEDINA, Juanjo; SOLYMOSI, Reka. Crime Mapping and Spatial Data Analysis using R. [S. L.]: Github, 2022. Disponível em: https://maczokni.github.io/crime_mapping/. Acesso em: 06 jun. 2023.
+SOLYMOSI, Reka et al. Crime Mapping in R. Manchester: Bookdown, 2022. Disponível em: https://maczokni.github.io/crime_mapping_textbook/#. Acesso em: 03 ago. 2023.
 
-Medina e Solymosi (2022)
-
-(MEDINA; SOLYMOSI, 2022)
+Solymosi et al. (2022)
+(SOLYMOSI et al., 2022)
 
 Ye, X., & Wu, L. (2011, April 1). Analyzing the dynamics of homicide patterns in Chicago: ESDA and spatial panel approaches. Applied Geography; Elsevier BV. https://doi.org/10.1016/j.apgeog.2010.08.006
 In-Text Citation: (Ye & Wu, 2011)
@@ -140,14 +123,14 @@ ou ... (SCORZAFAVE; SOARES, 2009)
 ou: ... (SCORZAFAVE; SOARES, 2009, v. 104, p. 40)
 
 
-SALVIATO, Rafael Buttini; MOURÃO, Gustavo Nunes. ECONOMIA DO CRIME: UM ESTUDO SOBRE A TEORIA ECONÔMICA DO CRIME E AS SUAS VERIFICAÇÕES NO ESTADO DO PARANÁ. Memorial TCC – Caderno da Graduação, [s. l.], p. 353-368, 2015.
+SALVIATO, Rafael Buttini; MOURÃO, Gustavo Nunes. ECONOMIA DO CRIME: UM ESTUDO SOBRE A TEORIA ECONÔMICA DO CRIME E AS SUAS VERIFICAÇÕES NO ESTADO DO PARANÁ. Memorial TCC – Caderno da Graduação, [s. l.], p. 353-368, [2014-2015].
 
 Citação no texto:
-ou: ... Salviato e Mourão (2015)
+ou: ... Salviato e Mourão ([2014-2015])
 
-ou ... (SALVIATO; MOURÃO, 2015)
+ou ... (SALVIATO; MOURÃO, [2014-2015])
 
-ou: ... (SALVIATO; MOURÃO, 2015, p. 353)
+ou: ... (SALVIATO; MOURÃO, [2014-2015], p. 353)
 
 
 ARAUJO, Ari Francisco; FAJNZYLBER, Pablo. CRIME E ECONOMIA: UM ESTUDO DAS MICRORREGIÕES MINEIRAS. IX Seminário sobre a Economia Mineira, [s. l.], p. 809-840, 2000.
