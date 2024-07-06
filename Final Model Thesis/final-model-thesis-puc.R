@@ -1,7 +1,7 @@
 pacman::p_load(dplyr, openxlsx, geobr, tmap, spdep, janitor, spatialreg, lme4, plm, tmap, DCluster, sp, raster, tidyr, install = TRUE)
 
 #### 0. Abrindo Banco de Dados, Homicidio (Contagem 2010) e variáveis independentes ####
-bd_final_ind_dep_count <- read.xlsx("C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Banco Dados Simples\\bd_final_ind_dep_count_2_final.xlsx")
+bd_final_ind_dep_count <- read.xlsx("https://github.com/PedroTL/mono-spatial-econometrics-r/raw/main/Final%20Model%20Thesis/data/bd_final_ind_dep_count_2.xlsx")
 
 #### 1. Bayesian Smooth #### 
 overall_incidence_ratio = sum(bd_final_ind_dep_count$homicidio_2010, na.rm = TRUE)/sum(bd_final_ind_dep_count$pop_total_2010, na.rm = TRUE)
@@ -149,7 +149,7 @@ corr <- metan::corr_coef(bakcwards[, var], use = 'pairwise.complete.obs')
 car::vif(backwards_model_2)
 
 ##### 3.1 Salvando Banco de dados backwards_model #####
-bakcwards_df <- read.xlsx("C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Banco Dados Simples\\backwards_model.xlsx") |>
+bakcwards_df <- read.xlsx("https://github.com/PedroTL/mono-spatial-econometrics-r/raw/main/Final%20Model%20Thesis/data/backwards_model.xlsx") |>
   mutate_at(vars(contains("scaled")), as.numeric) |>
   mutate(metrop_binaria = as.factor(metrop_binaria),
          log_homicidio_rate_EBSL_2010 = log(homicidio_rate_EBSL_2010),
@@ -226,9 +226,6 @@ map2 <-
 
 arrange <- tmap_arrange(map1, map2)
 
-# tmap_save(map1, filename = "C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Referencia\\homicidio_suavizada.png", height = 5, width = 6, dpi=300)
-# tmap_save(map2, filename = "C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Referencia\\homicidio_n_suavizada.png", height = 5, width = 6, dpi=300)
-
 #### 4. Resíduos e previstos do Modelo ####
 ##### 4.1 Modelo #####
 backwards_model <- lm(log_homicidio_rate_EBSL_2010 ~ 
@@ -299,8 +296,6 @@ map0 <-
   tm_borders(col = "black",
              lwd = 1.5)
 
-# tmap_save(map0, filename = "C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Referencia\\residuos.png", height = 5, width = 6, dpi=300)
-
 #### 5. Teste de Moran Autocorrelação espacial ####
 ##### 5.1 Teste Moran #####
 moran <- lm.morantest(backwards_model, listw = nb_pesos, alternative="two.sided") # P < 0.05 e Observed Moran I 0.54 (Vizinhos apresentam correlação positiva moderada)
@@ -353,7 +348,6 @@ lisa <-
   tm_layout(frame = F)
 
 lisa
-# tmap_save(lisa, filename = "C:\\Users\\pedro\\Documents\\GitHub\\mono-spatial-econometrics-r\\Referencia\\lisa.png", height = 5, width = 6, dpi=300)
 
 #### 7. Teste Multiplicador de Lagrange ####
 lm.LMtests(backwards_model, nb_pesos, test = c("LMerr","LMlag","RLMerr","RLMlag","SARMA"))
